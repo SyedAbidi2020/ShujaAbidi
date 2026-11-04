@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shuja Abidi | AI and Robotics Research</title>
-<meta name="description" content="Shuja Abidi's research interests are in AI and robotics, in three fields: human-robot interaction, JEPA and CBCL.">
+<meta name="description" content="Shuja Abidi's research interests are in AI and robotics, in four fields: human-robot interaction, JEPA, CBCL and semantic safety.">
 <style>
   :root {
     --bg: #f7f7f3; --surface: #ffffff; --soft: #eceee8; --ink: #14294d; --ink-2: #4f5d6c; --line: #d9dcd5;
@@ -37,20 +37,22 @@
   .lead { font-size: clamp(21px, 3vw, 27px); line-height: 1.35; margin: 0; max-width: 34em; }
   .map { margin-top: 26px; }
   .hub { width: fit-content; margin: 0 auto; background: #14294d; color: #fff; font-weight: 700; font-size: 18px; padding: 9px 26px; border-radius: 8px; }
-  .stems { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; height: 24px; position: relative; }
-  .stems::before { content: ""; position: absolute; left: calc((100% - 32px) / 6); right: calc((100% - 32px) / 6); top: 12px; border-top: 2px solid var(--ink); }
+  .stems { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; height: 24px; position: relative; }
+  .stems::before { content: ""; position: absolute; left: calc((100% - 16px) / 4); right: calc((100% - 16px) / 4); top: 12px; border-top: 2px solid var(--ink); }
   .stems::after { content: ""; position: absolute; left: 50%; top: 0; height: 12px; border-left: 2px solid var(--ink); }
   .stems i { display: block; width: 2px; height: 12px; margin: 12px auto 0; background: var(--ink); }
-  .projects { list-style: none; padding: 0; margin: 0; max-width: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .projects { list-style: none; padding: 0; margin: 0; max-width: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .projects li { margin: 0; }
   .project { --c: var(--accent); --fill: rgba(47, 157, 179, 0.15); display: flex; flex-direction: column; height: 100%; background: var(--surface); border: 2px solid var(--c); border-radius: 10px; padding: 14px 16px 15px; color: inherit; text-decoration: none; transition: transform 0.15s ease, box-shadow 0.15s ease; }
   .project.hri { --c: var(--orange); --fill: rgba(182, 86, 47, 0.14); }
   .project.jepa { --c: var(--accent); --fill: rgba(47, 157, 179, 0.15); }
   .project.cbcl { --c: #4a6ea9; --fill: rgba(74, 110, 169, 0.15); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.cbcl { --c: #9db8e6; --fill: rgba(157, 184, 230, 0.15); } }
+  .project.semantic { --c: #2a7f4f; --fill: rgba(42, 127, 79, 0.15); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.semantic { --c: #7fcf9f; --fill: rgba(127, 207, 159, 0.15); } }
   .project:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(20, 41, 77, 0.16); }
   @media (prefers-reduced-motion: reduce) { .project { transition: none; } .project:hover { transform: none; } }
-  .project svg { display: block; width: 100%; height: auto; margin-bottom: 8px; }
+  .project svg { display: block; width: 100%; max-width: 380px; height: auto; margin: 0 auto 8px; }
   .project svg text { font: 12.5px "Segoe UI", system-ui, sans-serif; fill: var(--ink); }
   .project svg text.tag { font-size: 11.5px; font-weight: 700; fill: var(--c); }
   .project svg .line { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -58,6 +60,8 @@
   .project svg .arrow { fill: none; stroke: var(--c); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
   .project svg .box { fill: var(--fill); stroke: var(--c); stroke-width: 1.8; }
   .project svg .box.mem { fill: none; }
+  .project svg .region { fill: rgba(182, 86, 47, 0.16); stroke: #b6562f; stroke-width: 1.6; }
+  .project svg .straight { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 6 5; }
   .project svg .cells rect { fill: var(--fill); stroke: var(--c); stroke-width: 1; }
   .project svg .hidden-cells rect { fill: #b6562f; }
   .project svg .c1 { fill: #b6562f; } .project svg .c2 { fill: #2f9db3; } .project svg .c3 { fill: #4a6ea9; } .project svg .c4 { fill: #7f8c99; }
@@ -142,6 +146,7 @@
     <a href="#hri">HRI</a>
     <a href="#jepa">JEPA</a>
     <a href="#cbcl">CBCL</a>
+    <a href="#semantic">Semantic Safety</a>
     <a href="#simulation">Simulation</a>
     <a href="#experience">Experience</a>
     <a href="#skills">Skills</a>
@@ -153,10 +158,10 @@
   <section class="intro">
     <h1>Shuja Abidi</h1>
     <p class="role">Research Scholar in AI and Robotics</p>
-    <p class="lead">Shuja Abidi's research interests are in AI and robotics, in three fields:</p>
+    <p class="lead">Shuja Abidi's research interests are in AI and robotics, in four fields:</p>
     <div class="map">
       <div class="hub">AI and Robotics</div>
-      <div class="stems" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="stems" aria-hidden="true"><i></i><i></i></div>
       <ul class="projects">
         <li><a class="project hri" href="https://syedabidi2020.github.io/HumanRobotInteraction/">
           <svg viewBox="0 0 320 196" role="img" aria-label="A person and a robot with two arrows between them. PDV points from robot to person, and HEV from person to robot.">
@@ -218,6 +223,25 @@
           <b>CBCL</b>
           <span class="what">How a robot can keep learning new things without forgetting old ones.</span>
           <span class="go">Open the CBCL page <span aria-hidden="true">→</span></span>
+        </a></li>
+        <li><a class="project semantic" href="https://syedabidi2020.github.io/semantic-safety-demo/">
+          <svg viewBox="0 0 320 196" role="img" aria-label="Seen from above, a robot's path to a goal. Holding a sponge, it goes straight over a laptop. Holding a cup of water, it goes around the laptop, because of a rule about what the objects are.">
+            <text class="tag" x="160" y="22" text-anchor="middle">Cup of water: goes around</text>
+            <rect class="region" x="116" y="58" width="88" height="66" rx="10"/>
+            <rect class="box mem" x="128" y="68" width="64" height="46" rx="3"/>
+            <text x="160" y="107" text-anchor="middle">Laptop</text>
+            <path class="straight" d="M30 100 290 70"/>
+            <path class="arrow" d="M30 100C62 96 76 40 116 40H220C250 40 268 52 284 66m-10-1 10 1-2-10"/>
+            <circle class="dots" cx="30" cy="100" r="5"/>
+            <circle class="dots" cx="290" cy="70" r="5"/>
+            <text x="30" y="122" text-anchor="middle">Start</text>
+            <text x="290" y="92" text-anchor="middle">Goal</text>
+            <text x="160" y="146" text-anchor="middle">Dry sponge: straight over the laptop</text>
+            <text x="160" y="178" text-anchor="middle">What it holds and what is nearby → safety rules</text>
+          </svg>
+          <b>Semantic Safety</b>
+          <span class="what">How a robot can use what objects are, not just where they are, to move safely.</span>
+          <span class="go">Open the Semantic Safety page <span aria-hidden="true">→</span></span>
         </a></li>
       </ul>
       <p class="joint"><a href="#jepa"><b>Jepa-CBCL-PR</b> joins JEPA and CBCL: can a stronger encoder help a robot's memory?</a></p>
@@ -319,6 +343,36 @@
     <figcaption>CBCL and CBCL-PR, redrawn from Ayub's thesis to explain how they work.</figcaption></figure>
   </section>
 
+  <section class="field" id="semantic">
+    <p class="num">4</p>
+    <h2>Semantic Safety</h2>
+    <p class="sub">Using what objects are to keep a robot safe: a cup of water must not pass over a laptop, but a dry sponge can.</p>
+    <div class="status"><b>Status:</b> a partial reproduction in simulation, built one lesson at a time to understand the field. Semantically safe manipulation is the work of <a href="https://arxiv.org/abs/2410.15185">Brunke et al., RA-L 2025</a>. There is no real robot, camera or LLM here yet, and the rules are typed by hand.</div>
+    <div class="cols">
+      <div>
+        <p>A filter that only avoids collisions can still break common-sense rules. This study rebuilds the idea in six lessons: a safety filter on a point robot, several constraints with superquadric shapes, semantic regions, the filter on a 7-joint Franka FR3 arm, whole-arm collisions and rotation, and finally a simulated kitchen.</p>
+        <p>One lesson from this work: zero violations came with a real cost. Many semantic runs stopped before the goal. The scripted motions can't steer around anything, and the protective spheres may be too large, but these causes haven't been separated yet.</p>
+        <p>The filter also runs in a web browser, with nothing to install, and matches the Python results on 41 of 41 checks.</p>
+        <p><b>Next:</b> rules from an LLM, then perception from RGB-D, then testing moving objects and position errors.</p>
+        <p class="links"><a href="https://syedabidi2020.github.io/semantic-safety-demo/">Open the Semantic Safety page</a><a href="https://syedabidi2020.github.io/semantic-safety-demo/demo.html">Try the live demo</a></p>
+      </div>
+      <div class="panel">
+        <h3>Simulated kitchen, 40 runs per filter</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Filter</th><th class="n">Worst violations</th><th class="n">Reached goal</th></tr></thead>
+          <tbody>
+            <tr><td>No filter</td><td class="n">61.9%</td><td class="n">100%</td></tr>
+            <tr><td>Geometric</td><td class="n">42.0%</td><td class="n">95%</td></tr>
+            <tr><td>Semantic</td><td class="n">0.0%</td><td class="n">72.5%</td></tr>
+          </tbody>
+        </table></div>
+        <p style="margin:9px 0 0;color:var(--ink-2);font-size:14px">Violations: % of steps breaking a rule, in the worst of 8 scene and object cases. Reached goal: the average across those cases. The rules, motions and layout are this study's own, so compare the pattern with the paper, not the values.</p>
+      </div>
+    </div>
+    <figure style="max-width:760px"><img src="images/semantic_cup_vs_sponge.png" alt="Robot paths towards a goal past a laptop, in side view and from above. With no filter and with sponge rules, every run passes over the laptop. With cup rules, no run passes over it: seen from above, the paths go around a region drawn around the laptop." width="1575" height="1275" loading="lazy">
+    <figcaption>Same motions, different held object. The side view can look as if the cup's paths cross the region, but the view from above shows them going around it.</figcaption></figure>
+  </section>
+
   <section class="field" id="simulation">
     <h2>Industrial experience: military simulation</h2>
     <p class="sub">More than 20 years of designing and building military training simulators, from hardware to software.</p>
@@ -373,6 +427,7 @@
     <dl style="margin-top:14px">
       <dt>Human sensing</dt><dd>FLAME 3D face fitting, FlashAvatar, facial action units, gaze and head pose, openSMILE voice features, Whisper</dd>
       <dt>AI and machine learning</dt><dd>OpenFace, MediaPipe, DensePose, OpenPose, U-Net, diffusion models, LLM integration, MiniRocket, Mahalanobis distance, CUSUM</dd>
+      <dt>Semantic safety and robot control</dt><dd>Control barrier function safety filters, quadratic programming (OSQP), superquadrics, MuJoCo, Franka FR3 inverse kinematics</dd>
       <dt>Simulation and graphics</dt><dd>Unreal Engine, Unity, OpenGL, XNA/DirectX, HLA and NDDS, simulator hardware integration</dd>
       <dt>Programming</dt><dd>Python, C#, C++, SQL, Next.js, Flutter, React Native</dd>
     </dl>
