@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shuja Abidi | AI and Robotics Research</title>
-<meta name="description" content="Shuja Abidi's research interests are in AI and robotics, in four fields: human-robot interaction, JEPA, CBCL and semantic safety.">
+<meta name="description" content="Shuja Abidi's research interests are in AI and robotics, in five fields: human-robot interaction, JEPA, CBCL, semantic safety and robotics.">
 <style>
   :root {
     --bg: #f7f7f3; --surface: #ffffff; --soft: #eceee8; --ink: #14294d; --ink-2: #4f5d6c; --line: #d9dcd5;
@@ -50,6 +50,13 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.cbcl { --c: #9db8e6; --fill: rgba(157, 184, 230, 0.15); } }
   .project.semantic { --c: #2a7f4f; --fill: rgba(42, 127, 79, 0.15); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.semantic { --c: #7fcf9f; --fill: rgba(127, 207, 159, 0.15); } }
+  .project.robotics { --c: #5b4fa3; --fill: rgba(91, 79, 163, 0.14); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.robotics { --c: #b3a8f0; --fill: rgba(179, 168, 240, 0.15); } }
+  .projects li.wide { grid-column: 1 / -1; }
+  .projects li.wide .project { flex-direction: row; align-items: center; gap: 22px; }
+  .projects li.wide .project svg { flex: 0 0 340px; margin: 0; }
+  .projects li.wide .text { display: flex; flex-direction: column; }
+  @media (max-width: 760px) { .projects li.wide .project { flex-direction: column; align-items: stretch; gap: 0; } .projects li.wide .project svg { flex: none; margin: 0 auto 8px; } }
   .project:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(20, 41, 77, 0.16); }
   @media (prefers-reduced-motion: reduce) { .project { transition: none; } .project:hover { transform: none; } }
   .project svg { display: block; width: 100%; max-width: 380px; height: auto; margin: 0 auto 8px; }
@@ -147,6 +154,7 @@
     <a href="#jepa">JEPA</a>
     <a href="#cbcl">CBCL</a>
     <a href="#semantic">Semantic Safety</a>
+    <a href="#robotics">Robotics</a>
     <a href="#simulation">Simulation</a>
     <a href="#experience">Experience</a>
     <a href="#skills">Skills</a>
@@ -158,7 +166,7 @@
   <section class="intro">
     <h1>Shuja Abidi</h1>
     <p class="role">Research Scholar in AI and Robotics</p>
-    <p class="lead">Shuja Abidi's research interests are in AI and robotics, in four fields:</p>
+    <p class="lead">Shuja Abidi's research interests are in AI and robotics, in five fields:</p>
     <div class="map">
       <div class="hub">AI and Robotics</div>
       <div class="stems" aria-hidden="true"><i></i><i></i></div>
@@ -242,6 +250,23 @@
           <b>Semantic Safety</b>
           <span class="what">How a robot can use what objects are, not just where they are, to move safely.</span>
           <span class="go">Open the Semantic Safety page <span aria-hidden="true">→</span></span>
+        </a></li>
+        <li class="wide"><a class="project robotics" href="https://syedabidi2020.github.io/robotics/">
+          <svg viewBox="0 0 320 196" role="img" aria-label="A robot dog and a humanoid robot. A dashed planned path leads from the dog, around a person, to a goal.">
+            <g class="line"><rect x="18" y="104" width="62" height="22" rx="8"/><path d="M80 108l14-10"/><rect x="90" y="88" width="20" height="16" rx="4"/><path d="M26 126l-6 18 6 14M44 126l4 16-6 16M60 126l-6 18 6 14M74 126l4 16-6 16"/></g>
+            <g class="line"><circle cx="268" cy="34" r="11"/><rect x="254" y="49" width="28" height="44" rx="7"/><path d="M254 56l-12 30M282 56l12 30M261 93l-5 50M275 93l5 50"/></g>
+            <g class="dots"><circle cx="164" cy="98" r="9"/></g>
+            <path class="line" d="M164 107v28m-14-18h28M164 135l-9 22M164 135l9 22"/>
+            <path class="straight" d="M112 112C140 160 196 168 214 132"/>
+            <path class="arrow" d="M214 132l20-34m-11 4 11-4 1 12"/>
+            <text class="tag" x="164" y="80" text-anchor="middle">plans around people</text>
+            <text x="160" y="182" text-anchor="middle">Camera + lidar → map → path → walking</text>
+          </svg>
+          <span class="text">
+            <b>Robotics</b>
+            <span class="what">Quadruped and humanoid robots in simulation that build a map, plan a path around people and walk it.</span>
+            <span class="go">Open the Robotics page <span aria-hidden="true">→</span></span>
+          </span>
         </a></li>
       </ul>
       <p class="joint"><a href="#jepa"><b>Jepa-CBCL-PR</b> joins JEPA and CBCL: can a stronger encoder help a robot's memory?</a></p>
@@ -373,6 +398,34 @@
     <figcaption>Same motions, different held object. The side view can look as if the cup's paths cross the region, but the view from above shows them going around it.</figcaption></figure>
   </section>
 
+  <section class="field" id="robotics">
+    <p class="num">5</p>
+    <h2>Robotics</h2>
+    <p class="sub">Legged robots that see people, plan around them and walk there.</p>
+    <div class="status"><b>Status:</b> all in simulation (MuJoCo), with no real robot yet. The humanoids walk with Unitree's pretrained policies. The research effort goes into perception and planning: deciding where to go.</div>
+    <div class="cols">
+      <div>
+        <p>A Unitree Go2 quadruped and three Unitree humanoids (G1, H1 and H1-2) each build a map from their own RGB-D camera and 360° lidar, track walking people, plan a path that respects personal space, and walk it. Every robot takes the same velocity command, so one planner drives them all.</p>
+        <p>For the Go2, three walking controllers are compared: a hand-written trot, an MIT Cheetah-style convex MPC rebuilt from Di Carlo et al. (2018) with my own QP solver, and a learned RL policy.</p>
+        <p>One lesson from this work: human-aware planning was <i>worse</i> than normal planning until a 360° lidar was added, because a forward camera misses people coming from the side.</p>
+        <p class="links"><a href="https://syedabidi2020.github.io/robotics/">Open the Robotics page</a></p>
+      </div>
+      <div class="panel">
+        <h3>Results in simulation</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Test</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>People crossing the path, G1, 12 runs</td><td>human-aware: closest 0.96 m median, 0.49 m worst; normal: 0.61 m, one collision</td></tr>
+            <tr><td>Go2 ramps 5°–25°</td><td>MPC crosses all; simple trot stuck from 15°</td></tr>
+            <tr><td>Demo paths, all four robots</td><td>0 falls</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <figure><img src="images/robotics_viewer.png" alt="The robot simulator window: a sidebar of buttons on the left, and a Unitree G1 humanoid walking among posts, boxes and three simulated people." width="1536" height="864" loading="lazy">
+    <figcaption>The simulator, with all controls in the sidebar: robot, mode, goals, objects and options such as walking people and human-aware planning.</figcaption></figure>
+  </section>
+
   <section class="field" id="simulation">
     <h2>Industrial experience: military simulation</h2>
     <p class="sub">More than 20 years of designing and building military training simulators, from hardware to software.</p>
@@ -428,6 +481,7 @@
       <dt>Human sensing</dt><dd>FLAME 3D face fitting, FlashAvatar, facial action units, gaze and head pose, openSMILE voice features, Whisper</dd>
       <dt>AI and machine learning</dt><dd>OpenFace, MediaPipe, DensePose, OpenPose, U-Net, diffusion models, LLM integration, MiniRocket, Mahalanobis distance, CUSUM</dd>
       <dt>Semantic safety and robot control</dt><dd>Control barrier function safety filters, quadratic programming (OSQP), superquadrics, MuJoCo, Franka FR3 inverse kinematics</dd>
+      <dt>Legged robots</dt><dd>MuJoCo, Unitree G1, H1, H1-2 and Go2, convex MPC, RL policies (ONNX), RGB-D and lidar mapping, A* and human-aware planning, ROS 2</dd>
       <dt>Simulation and graphics</dt><dd>Unreal Engine, Unity, OpenGL, XNA/DirectX, HLA and NDDS, simulator hardware integration</dd>
       <dt>Programming</dt><dd>Python, C#, C++, SQL, Next.js, Flutter, React Native</dd>
     </dl>
