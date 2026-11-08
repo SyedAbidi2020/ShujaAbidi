@@ -156,6 +156,7 @@
     <a href="#semantic">Semantic Safety</a>
     <a href="#robotics">Robotics</a>
     <a href="#simulation">Simulation</a>
+    <a href="#products">AI Products</a>
     <a href="#experience">Experience</a>
     <a href="#skills">Skills</a>
     <a href="#contact">Contact</a>
@@ -271,7 +272,7 @@
       </ul>
       <p class="joint"><a href="#jepa"><b>Jepa-CBCL-PR</b> joins JEPA and CBCL: can a stronger encoder help a robot's memory?</a></p>
     </div>
-    <p class="also">Alongside this research, Shuja has more than 20 years of industrial experience in military simulation. <a href="#simulation">See the projects</a></p>
+    <p class="also">Alongside this research, Shuja has more than 20 years of industrial experience in military simulation, and has built commercial AI products. <a href="#simulation">See the simulators</a> and the <a href="#products">AI products</a></p>
   </section>
 
   <section class="field" id="hri">
@@ -463,12 +464,41 @@
     </ul>
   </section>
 
+  <section class="field" id="products">
+    <h2>AI Products</h2>
+    <p class="sub">Commercial AI in two areas: computer vision for fashion, and language models for business.</p>
+    <div class="company">
+      <div class="panel">
+        <h3>Virtual try-on, Vocal Eye (2021 – 2023)</h3>
+        <p>AI that shows a person wearing a chosen garment by changing the clothes in their photo. The team built and trained its own implementation of CP-VTON (Characteristic-Preserving Virtual Try-On Network) and its successor, CP-VTON+.</p>
+        <ul>
+          <li><b>Reading the photo:</b> human parsing (DensePose), pose detection (OpenPose) and cloth segmentation (U-Net).</li>
+          <li><b>Fitting the garment:</b> a geometric matching stage warps the clothing to the person's body with a thin-plate spline.</li>
+          <li><b>Making the image:</b> a try-on stage blends the warped garment with the person through a composition mask, designed to keep the garment's texture and logos.</li>
+          <li><b>Also in the pipeline:</b> masked-image composition and diffusion-based garment synthesis.</li>
+        </ul>
+        <p class="note" style="margin-top:10px">Methods: CP-VTON (Wang et al., ECCV 2018); CP-VTON+ (Minar et al., CVPR Workshops 2020).</p>
+      </div>
+      <div class="panel">
+        <h3>AI assistants for business, <a href="https://www.splutter.ai">Splutter</a> (2024 – present)</h3>
+        <p>A SaaS platform where companies build AI chatbots and voicebots and deploy them on their own websites within minutes. More than 100 companies use it. Shuja is the platform's architect and led its core AI integration.</p>
+        <ul>
+          <li><b>Knowledge:</b> companies load a knowledge base from websites, PDFs, text and manual entry.</li>
+          <li><b>Answers:</b> retrieval-augmented generation (RAG) bases each reply on the company's own content, using OpenAI and other language models.</li>
+          <li><b>Models:</b> AI models trained for the platform's assistants, and a bot configuration that lets models be swapped.</li>
+          <li><b>Reach:</b> web, SMS, WhatsApp, Messenger and Slack, for customer support, sales and lead capture.</li>
+        </ul>
+        <p class="links"><a href="https://www.splutter.ai">Visit splutter.ai <span aria-hidden="true">→</span></a></p>
+      </div>
+    </div>
+  </section>
+
   <section class="field" id="experience">
     <h2>Experience</h2>
     <p class="sub">More than 25 years of building real-time systems that people use and train on.</p>
     <div class="job"><time>2007 – present</time><div><h3>Chief Technology Officer, <a href="https://www.sispvt.com">Soft Innovative Systems</a></h3><p>Leads platform selection, system architecture and technical design for simulation and software products. Built and leads the engineering team.</p></div></div>
-    <div class="job"><time>2024 – present</time><div><h3>Technical Head, <a href="https://www.splutter.ai">Splutter</a></h3><p>Architected a SaaS product with AI features, and led the core AI integration.</p></div></div>
-    <div class="job"><time>2021 – 2023</time><div><h3>Co-founder, Vocal Eye</h3><p>Built a virtual try-on pipeline using human parsing, pose detection, cloth segmentation and diffusion-based garment synthesis, along with other AI products.</p></div></div>
+    <div class="job"><time>2024 – present</time><div><h3>Technical Head, <a href="https://www.splutter.ai">Splutter</a></h3><p>Architect of an AI chatbot and voicebot SaaS platform used by more than 100 companies. Led the core AI integration, including RAG and OpenAI language models. <a href="#products">More</a></p></div></div>
+    <div class="job"><time>2021 – 2023</time><div><h3>Co-founder, Vocal Eye</h3><p>Built virtual try-on with an in-house, trained implementation of CP-VTON and CP-VTON+, along with other AI products. <a href="#products">More</a></p></div></div>
     <div class="job"><time>2014 – 2020</time><div><h3>Technical Head, <a href="https://www.devajtechnology.com">Devaj Technology</a></h3><p>Led delivery of a restaurant management system used by more than 2,000 clients in Pakistan, and a cloud retail management system.</p></div></div>
     <div class="job"><time>2002 – 2007</time><div><h3>System Architect and Team Lead, Data Communication and Control</h3><p>Developed military and medical training simulators, distributed simulation using HLA and NDDS, and 3D graphics engines.</p></div></div>
     <div class="job"><time>2001 – 2002</time><div><h3>Research Assistant, Muhammad Ali Jinnah University</h3></div></div>
@@ -479,7 +509,7 @@
     <h2>Skills</h2>
     <dl style="margin-top:14px">
       <dt>Human sensing</dt><dd>FLAME 3D face fitting, FlashAvatar, facial action units, gaze and head pose, openSMILE voice features, Whisper</dd>
-      <dt>AI and machine learning</dt><dd>OpenFace, MediaPipe, DensePose, OpenPose, U-Net, diffusion models, LLM integration, MiniRocket, Mahalanobis distance, CUSUM</dd>
+      <dt>AI and machine learning</dt><dd>OpenFace, MediaPipe, DensePose, OpenPose, U-Net, CP-VTON and CP-VTON+ virtual try-on, diffusion models, LLM integration (OpenAI), RAG, MiniRocket, Mahalanobis distance, CUSUM</dd>
       <dt>Semantic safety and robot control</dt><dd>Control barrier function safety filters, quadratic programming (OSQP), superquadrics, MuJoCo, Franka FR3 inverse kinematics</dd>
       <dt>Legged robots</dt><dd>MuJoCo, Unitree G1, H1, H1-2 and Go2, convex MPC, RL policies (ONNX), RGB-D and lidar mapping, A* and human-aware planning, ROS 2</dd>
       <dt>Simulation and graphics</dt><dd>Unreal Engine, Unity, OpenGL, XNA/DirectX, HLA and NDDS, simulator hardware integration</dd>
