@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shuja Abidi | AI and Robotics Research</title>
-<meta name="description" content="Shuja Abidi's research interests are in AI and robotics, in five fields: human-robot interaction, JEPA, CBCL, semantic safety and robotics.">
+<link rel="canonical" href="https://syedabidi2020.github.io/ShujaAbidi/">
+<meta name="description" content="Shuja Abidi's research interests are in AI and robotics, in six fields: human-robot interaction, JEPA, CBCL, semantic safety, robotics and robot failure diagnosis.">
 <style>
   :root {
     --bg: #f7f7f3; --surface: #ffffff; --soft: #eceee8; --ink: #14294d; --ink-2: #4f5d6c; --line: #d9dcd5;
@@ -52,6 +53,8 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.semantic { --c: #7fcf9f; --fill: rgba(127, 207, 159, 0.15); } }
   .project.robotics { --c: #5b4fa3; --fill: rgba(91, 79, 163, 0.14); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.robotics { --c: #b3a8f0; --fill: rgba(179, 168, 240, 0.15); } }
+  .project.failure { --c: #0f6b6b; --fill: rgba(15, 107, 107, 0.13); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .project.failure { --c: #5cc4c0; --fill: rgba(92, 196, 192, 0.15); } }
   .projects li.wide { grid-column: 1 / -1; }
   .projects li.wide .project { flex-direction: row; align-items: center; gap: 22px; }
   .projects li.wide .project svg { flex: 0 0 340px; margin: 0; }
@@ -155,6 +158,7 @@
     <a href="#cbcl">CBCL</a>
     <a href="#semantic">Semantic Safety</a>
     <a href="#robotics">Robotics</a>
+    <a href="#failure">Robot Failures</a>
     <a href="#simulation">Simulation</a>
     <a href="#products">AI Products</a>
     <a href="#experience">Experience</a>
@@ -167,7 +171,7 @@
   <section class="intro">
     <h1>Shuja Abidi</h1>
     <p class="role">Research Scholar in AI and Robotics</p>
-    <p class="lead">Shuja Abidi's research interests are in AI and robotics, in five fields:</p>
+    <p class="lead">Shuja Abidi's research interests are in AI and robotics, in six fields:</p>
     <div class="map">
       <div class="hub">AI and Robotics</div>
       <div class="stems" aria-hidden="true"><i></i><i></i></div>
@@ -267,6 +271,25 @@
             <b>Robotics</b>
             <span class="what">Quadruped and humanoid robots in simulation that build a map, plan a path around people and walk it.</span>
             <span class="go">Open the Robotics page <span aria-hidden="true">→</span></span>
+          </span>
+        </a></li>
+        <li class="wide"><a class="project failure" href="https://syedabidi2020.github.io/robot-failure-diagnosis/?ref=main">
+          <svg viewBox="0 0 320 196" role="img" aria-label="A long robot log with one short spike. An arrow leads from the spike to three lanes, hardware, perception and motion, with perception marked as the root cause.">
+            <path class="line" d="M14 60h292"/>
+            <path class="arrow a1" d="M14 60h70l6-4 6 4h40l5-30 5 46 5-12h150"/>
+            <text x="160" y="22" text-anchor="middle">Hours of robot logs</text>
+            <circle class="dots" cx="151" cy="30" r="5"/>
+            <path class="arrow a2" d="M151 82v26m-6-8 6 8 6-8"/>
+            <rect class="box b1" x="20" y="116" width="86" height="34" rx="6"/><text x="63" y="138" text-anchor="middle">Hardware</text>
+            <rect class="box b3" x="117" y="116" width="86" height="34" rx="6"/><text x="160" y="138" text-anchor="middle">Perception</text>
+            <rect class="box b1" x="214" y="116" width="86" height="34" rx="6"/><text x="257" y="138" text-anchor="middle">Motion</text>
+            <text class="tag" x="160" y="168" text-anchor="middle">root cause, not the symptom</text>
+            <text x="160" y="188" text-anchor="middle">Find → explain → (planned) repair</text>
+          </svg>
+          <span class="text">
+            <b>Robot Failure Diagnosis</b>
+            <span class="what">Finding why a robot failed from its logs: hardware, perception or its own policy. Tested on a simulated Go2 and three real robot recordings.</span>
+            <span class="go">Open the Robot Failure page <span aria-hidden="true">→</span></span>
           </span>
         </a></li>
       </ul>
@@ -425,6 +448,34 @@
     </div>
     <figure><img src="images/robotics_viewer.png" alt="The robot simulator window: a sidebar of buttons on the left, and a Unitree G1 humanoid walking among posts, boxes and three simulated people." width="1536" height="864" loading="lazy">
     <figcaption>The simulator, with all controls in the sidebar: robot, mode, goals, objects and options such as walking people and human-aware planning.</figcaption></figure>
+  </section>
+
+  <section class="field" id="failure">
+    <p class="num">6</p>
+    <h2>Robot Failure Diagnosis</h2>
+    <p class="sub">Turning real-world robot failures into verified recovery data: first, finding why a robot failed, from its logs.</p>
+    <div class="status"><b>Status:</b> the find and explain steps are built and tested. Accuracy is measured in simulation, where the true cause is known; three real robot recordings from other labs were analysed without ground truth. The repair step is planned, not built.</div>
+    <div class="cols">
+      <div>
+        <p>Robots that work in the lab fail in the real world, in failures that last 50–150 ms inside hours of logs. The same symptom, such as a fall or a collision, can come from hardware, perception or the robot's own policy, and each needs a different fix.</p>
+        <p>The tool reads MCAP robot logs, flags incidents against a fleet baseline, and names the root cause: the earliest anomaly lasting at least 1 s that has a PCMCI+ causal path to a symptom, with physics rules blocking impossible links. Each cause goes to a lane: hardware, perception or motion.</p>
+        <p>One lesson from this work: a simple duration filter does most of the work. PCMCI+ adds a few points and filters out harmless decoy glitches.</p>
+        <p class="links"><a href="https://syedabidi2020.github.io/robot-failure-diagnosis/?ref=main">Open the Robot Failure page</a></p>
+      </div>
+      <div class="panel">
+        <h3>Results</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Test</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Simulated Go2, 270 hard incidents (gradual faults, decoys)</td><td>root cause correct in 87%; biggest-anomaly rule 81%</td></tr>
+            <tr><td>Detection, 300 episodes</td><td>271/271 faulty flagged, 1 false alarm in 29 clean</td></tr>
+            <tr><td>Real Go2-W, Go2 and ANYmal D logs</td><td>incidents found and shown with all cameras and lidar; unexplained ones are not guessed</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <figure><img src="images/robot_failure_sim.jpg" alt="A Go2 robot walking in a photo-real forest with a blue incident banner reading Perception, Lidar returns. The robot's head camera, the diagnosis and graphs of the anomaly score and cause signals are beside it." width="1280" height="720" loading="lazy">
+    <figcaption>Simulated Go2 with a lidar dropout: the tool names the lidar as the root cause before the robot hits the rock it never mapped.</figcaption></figure>
   </section>
 
   <section class="field" id="simulation">
