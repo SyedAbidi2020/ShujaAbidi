@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PO-CBVF Explained</title>
+<meta name="description" content="A plain-language walkthrough and independent re-implementation of Control Barrier-Value Functions under Partial Observability (Jahanshahi & Chen, CDC 2026).">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="assets/data.js"></script>
+<style>
+/* theme: same tokens, fonts and top bar as syedabidi2020.github.io/ShujaAbidi */
+:root{
+  --bg:#f7f7f3; --panel:#ffffff; --soft:#eceee8; --ink:#14294d; --muted:#4f5d6c; --line:#d9dcd5;
+  --navy:#14294d; --accent:#1f7f93; --orange:#b6562f; --warn-bg:#fbf1e3;
+  --naive:#b6562f; --paper:#b88a1c; --ours:#2a7f4f; --true:#4a6ea9;
+  --code:#eceee8; --shadow:none;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15191f; --panel:#1e242c; --soft:#27303a; --ink:#eef1f4; --muted:#bcc5cf; --line:#333d48;
+    --navy:#0d1b31; --accent:#6cc4d6; --orange:#e68e68; --warn-bg:#33291a;
+    --naive:#e68e68; --paper:#e3bd5f; --ours:#7fcf9f; --true:#9db8e6; --code:#27303a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15191f; --panel:#1e242c; --soft:#27303a; --ink:#eef1f4; --muted:#bcc5cf; --line:#333d48;
+  --navy:#0d1b31; --accent:#6cc4d6; --orange:#e68e68; --warn-bg:#33291a;
+  --naive:#e68e68; --paper:#e3bd5f; --ours:#7fcf9f; --true:#9db8e6; --code:#27303a;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.62 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+main.wrap{max-width:920px}
+section{scroll-margin-top:60px}
+h1,h2,h3{font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;font-weight:700}
+.topbar{position:sticky;top:0;z-index:10;background:#14294d}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:20px;overflow-x:auto}
+.brand{color:#fff;font-weight:700;white-space:nowrap;text-decoration:none;padding:13px 0}
+.topbar nav{display:flex;gap:2px;margin-left:auto}
+.topbar nav a{color:#d7e0ea;text-decoration:none;padding:13px 11px;font-size:15px;font-weight:600;white-space:nowrap}
+.topbar nav a:hover{color:#fff;background:rgba(255,255,255,.09)}
+header.hero{padding:52px 0 26px}
+header.hero .wrap{max-width:920px}
+.kicker{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);font-weight:700}
+h1{font-size:clamp(32px,5.4vw,50px);line-height:1.08;margin:.25em 0 .4em;letter-spacing:-.01em}
+h2{font-size:clamp(26px,3.4vw,32px);margin:56px 0 10px;line-height:1.2}
+h3{font-size:21px;margin:30px 0 6px}
+.lead{font-size:clamp(19px,2.4vw,23px);line-height:1.4;color:var(--ink)}
+.cite{color:var(--muted);font-size:15px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.badge{font-size:13.5px;font-weight:600;padding:4px 11px;border-radius:999px;background:var(--panel);color:var(--accent);border:2px solid var(--accent)}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:18px 20px;margin:18px 0;box-shadow:var(--shadow)}
+.simple{background:var(--panel);border:2px solid var(--accent);border-radius:10px;padding:12px 16px;margin:14px 0}
+.simple b:first-child{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:720px){.grid2{grid-template-columns:1fr}}
+figure{margin:18px 0}
+figure img,figure video{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:#fff;display:block}
+figcaption{font-size:14.5px;color:var(--muted);margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:15px;margin:10px 0}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;line-height:1.5}
+.step{display:grid;grid-template-columns:44px 1fr;gap:14px;margin:22px 0}
+.step .n{width:36px;height:36px;border-radius:8px;background:var(--navy);color:#fff;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;font-weight:700}
+.step h3{margin-top:4px}
+.step > div{min-width:0}            /* let code blocks scroll inside the grid instead of widening the page */
+.card,.callout,figure{min-width:0;max-width:100%}
+.file{font-size:13px;color:var(--muted)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.widget{display:grid;gap:12px}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:15px}
+.controls label{display:flex;gap:8px;align-items:center}
+input[type=range]{width:200px;accent-color:var(--accent)}
+select{font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.readout{font-variant-numeric:tabular-nums;font-size:15px}
+svg text{fill:var(--ink);font-family:inherit}
+.callout{border:2px solid var(--orange);border-radius:10px;padding:14px 18px;background:var(--warn-bg)}
+.honest li{margin:6px 0}
+footer{margin:60px 0 40px;color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:20px}
+.themebtn{font:inherit;font-size:13px;font-weight:600;border:1px solid rgba(255,255,255,.35);background:transparent;color:#d7e0ea;border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap}
+.themebtn:hover{color:#fff;background:rgba(255,255,255,.09)}
+.katex-display{overflow-x:auto;overflow-y:hidden;padding:4px 0}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="../../">Shuja Abidi</a>
+  <nav aria-label="Sections">
+    <a href="#purpose">Purpose</a><a href="#background">Background</a><a href="#method">Method</a><a href="#impl">Implementation</a><a href="#results">Results</a><a href="#extension">Extension</a><a href="#categories">Categories</a><a href="#limits">Limits</a>
+  </nav>
+  <button class="themebtn" id="themebtn" type="button">Theme</button>
+</div></div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Paper walkthrough · independent re-implementation</div>
+    <h1>PO-CBVF: keeping a robot safe when it cannot see its own state exactly</h1>
+    <p class="lead">A plain-language guide to <em>Control Barrier-Value Functions under Partial Observability: Safety Guarantees via Conformal Prediction</em>: what it solves, the ideas it is built from, how I implemented it step by step, and what the results show.</p>
+    <p class="cite">Paper: N. Jahanshahi and M. Chen, CDC 2026, <a href="https://arxiv.org/abs/2608.13819">arXiv:2608.13819</a>. Walkthrough, code and experiments by Shuja Abidi. This is not the authors' code; any errors are mine.</p>
+    <div class="badges"><span class="badge">Grid HJ solver from scratch (NumPy)</span><span class="badge">1,200 Monte Carlo runs, 0 violations</span><span class="badge">UR5e demo</span><span class="badge">Small extension: same guarantee, less conservative</span><span class="badge">Broken assumption → failure category</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ===================================================== 1 PURPOSE -->
+<section id="purpose">
+<h2>1 · What problem does the paper solve?</h2>
+<p>Many safety filters for robots assume the robot knows its exact state: where it is and how fast it is moving. Real robots don't. They measure their state through noisy sensors (cameras, GPS, encoders) and run an <b>estimator</b> that turns those measurements into a best guess, written $\hat x$. The true state $x$ is somewhere near that guess, but not exactly on it.</p>
+<p>If you feed the guess $\hat x$ into a safety filter that was designed for the true state, the filter keeps the <em>guess</em> safe, not the robot. Whenever the guess is off, the real robot can be inside an obstacle while the filter believes everything is fine.</p>
+<div class="simple"><b>In one sentence:</b> the paper builds a safety filter that runs on the robot's <em>estimate</em>, yet guarantees that the <em>real</em> robot stays safe with a chosen probability (for example 95%), without assuming a particular noise distribution.</div>
+<p>It does this by joining three tools that are usually used separately:</p>
+<ol>
+  <li><b>Conformal prediction</b> to learn, from data, how far the estimate can be from the truth, with a probability guarantee.</li>
+  <li><b>Hamilton-Jacobi reachability</b> to compute where the robot can still be kept safe, even under the worst disturbance.</li>
+  <li><b>Control barrier functions</b> to turn that into a fast filter that only changes the robot's command when it must.</li>
+</ol>
+<p>Its main result (Theorem 2) states: if the filter keeps the estimate inside a shrunken safe set, the true state stays inside the real safe set for the whole horizon with probability at least $1-\alpha$.</p>
+</section>
+
+<!-- ===================================================== 2 BACKGROUND -->
+<section id="background">
+<h2>2 · The ideas you need first</h2>
+<p>Each idea below is explained in plain words first, then with the one equation the paper uses.</p>
+
+<h3>2.1 State, control and disturbance</h3>
+<p>The <b>state</b> $x$ is everything needed to predict the robot's motion. In the paper's example it is a point robot on a plane: position $p=(p_x,p_y)$ and velocity $v=(v_x,v_y)$, so $x\in\mathbb R^4$. The robot chooses a <b>control</b> $u$ (here, an acceleration within $\pm4$). The world adds a <b>disturbance</b> $d$ (wind, slip, model error; here within $\pm0.1$).</p>
+$$\dot p = v,\qquad \dot v = u + d .$$
+<div class="simple"><b>Simply:</b> push the robot (u), the world pushes back a little (d), and the robot moves. This is a "double integrator", the simplest model of something with mass.</div>
+
+<h3>2.2 Partial observability and the state estimator</h3>
+<p>The robot does not see $x$. It only gets a noisy position measurement $y = p + n$ with $|n_i|\le 0.1$. A simple estimator (an <b>observer</b>) keeps a running guess and nudges it toward each new measurement:</p>
+$$\dot{\hat p} = \hat v + L\,(y-\hat p),\qquad \dot{\hat v} = u,\qquad L = 2 .$$
+<p>The <b>estimation error</b> is $\varepsilon = x - \hat x$. Everything in the paper is about controlling the effect of this error.</p>
+<div class="simple"><b>Simply:</b> like walking in fog with a shaky GPS. You keep a guess of where you are, and correct it a little each time the GPS updates. The gain $L$ decides how much you trust each update.</div>
+
+<h3>2.3 Safe set and safety margin</h3>
+<p>A function $l(x)$ measures how safe a state is: positive means safe, negative means in collision. For round obstacles, $l$ is the distance to the nearest obstacle edge. The <b>safe set</b> is $\mathcal L=\{x: l(x)\ge 0\}$.</p>
+<figure>
+<svg viewBox="0 0 640 220" role="img" aria-label="Obstacle with safety margin">
+  <rect x="0" y="0" width="640" height="220" fill="none"/>
+  <circle cx="200" cy="110" r="70" fill="var(--soft)" stroke="var(--muted)" stroke-width="2"/>
+  <text x="200" y="115" text-anchor="middle" font-size="14">obstacle</text>
+  <text x="200" y="135" text-anchor="middle" font-size="13" fill="var(--muted)">l(x) &lt; 0</text>
+  <circle cx="360" cy="80" r="7" fill="var(--true)"/>
+  <line x1="268" y1="96" x2="352" y2="82" stroke="var(--true)" stroke-dasharray="4 4" stroke-width="2"/>
+  <text x="372" y="72" font-size="14">robot: l(x) = distance to the edge &gt; 0</text>
+  <circle cx="200" cy="110" r="96" fill="none" stroke="var(--ours)" stroke-width="2.5" stroke-dasharray="6 5"/>
+  <text x="300" y="196" font-size="14" fill="var(--ours)">a "grown" obstacle = the obstacle plus a safety margin</text>
+</svg>
+<figcaption>The safety margin $l(x)$ and the safe set. Later the paper grows each obstacle by the estimation-error bound.</figcaption>
+</figure>
+
+<h3>2.4 Hamilton-Jacobi reachability and value functions</h3>
+<p>Being outside the obstacle <em>now</em> is not enough. A robot heading fast toward a wall may be unable to stop in time. <b>Reachability</b> asks: from this state, can the robot stay safe forever, whatever the disturbance does? The answer is stored in a <b>value function</b> $V(x)$, computed backward in time by solving a Hamilton-Jacobi partial differential equation, a game between the control (trying to stay safe) and the disturbance (trying to cause a collision).</p>
+<div class="simple"><b>Simply:</b> for every point on a map of positions and speeds, the computer works out "if I am here, moving like this, can I still avoid the wall if the wind is against me?" Points where the answer is yes have $V\ge0$.</div>
+<p>The Hamiltonian $H$ is the best the control can do against the worst disturbance, at each state:</p>
+$$H(x,\nabla V)=\max_{u}\;\min_{d}\;\nabla V\cdot f(x,u,d).$$
+
+<h3>2.5 Control barrier functions and the CBVF</h3>
+<p>A <b>control barrier function</b> (CBF) gives a simple rule: allow any command that does not let the safety value drop too fast. The <b>control barrier-value function</b> (CBVF, Choi et al. 2021) is the reachability value function with a discount factor $\gamma$ that makes it act like a CBF. It solves:</p>
+$$0=\min\Big\{\,l(x)-B(x,t),\;\; \partial_t B + H(x,\nabla B) + \gamma B\Big\}.$$
+<p>The commands that keep the robot safe are those that satisfy</p>
+$$\partial_t B + \min_d \nabla B\cdot f(x,u,d) + \gamma B \;\ge\; 0 .$$
+<p>Because this is linear in $u$, the filter is a tiny <b>quadratic program</b> (QP): find the command closest to what the robot wanted that still satisfies the inequality.</p>
+<div class="simple"><b>Simply:</b> the robot has its own plan (drive to the goal). The filter watches, and only when the plan would become unsafe does it bend the command, by the smallest amount needed.</div>
+
+<h3>2.6 Conformal prediction</h3>
+<p><b>Conformal prediction</b> turns data into an error bound with a guarantee, without assuming a noise distribution. Run the system $M$ times, record a <b>score</b> per run (here, the largest estimation error in that run), sort the scores, and take the $\lceil (M+1)(1-\alpha)\rceil$-th smallest as the bound $q_\alpha$. Then a new run's score is below $q_\alpha$ with probability at least $1-\alpha$, provided the runs are <b>exchangeable</b> (statistically alike).</p>
+$$S^{(j)}=\max_k\|\varepsilon_k^{(j)}\|,\qquad q_\alpha=S_{(\lceil (M+1)(1-\alpha)\rceil)},\qquad \Pr\big(S\le q_\alpha\big)\ge 1-\alpha .$$
+<div class="card widget" id="cpwidget">
+  <div class="controls">
+    <label>Setting <select id="cpset"><option value="paper">paper (gain 2, noise ±0.1)</option><option value="weak camera">weak camera (gain 0.3, noise ±0.3)</option></select></label>
+    <label>α = <span id="cpalpha">0.05</span><input type="range" id="cpslider" min="0.01" max="0.30" step="0.01" value="0.05"></label>
+    <label><input type="checkbox" id="cpwarm"> score after warm-up (our change)</label>
+  </div>
+  <svg id="cphist" viewBox="0 0 820 260" role="img" aria-label="Histogram of calibration scores with the conformal quantile"></svg>
+  <div class="readout" id="cpread"></div>
+</div>
+<p class="file">Live: the 500 calibration scores from my implementation. Move α and the bound moves; tick "after warm-up" to see the change described in Section 6.</p>
+
+<h3>2.7 The union bound</h3>
+<p>If event A fails with probability at most $\alpha_1$ and event B fails with probability at most $\alpha_2$, then "A and B both hold" fails with probability at most $\alpha_1+\alpha_2$. I use this in the extension: two bounds at $\alpha/2$ each still give an overall $1-\alpha$.</p>
+</section>
+
+<!-- ===================================================== 3 METHOD -->
+<section id="method">
+<h2>3 · How the paper puts the pieces together</h2>
+<figure>
+<svg viewBox="0 0 860 200" role="img" aria-label="PO-CBVF pipeline">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+  <g font-size="13.5">
+    <rect x="6" y="40" width="150" height="74" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+    <text x="81" y="66" text-anchor="middle" font-weight="700">1. Calibrate</text>
+    <text x="81" y="86" text-anchor="middle" fill="var(--muted)">M runs → error</text>
+    <text x="81" y="104" text-anchor="middle" fill="var(--muted)">bound q_α</text>
+    <rect x="182" y="40" width="150" height="74" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+    <text x="257" y="66" text-anchor="middle" font-weight="700">2. Tube</text>
+    <text x="257" y="86" text-anchor="middle" fill="var(--muted)">grow q_α between</text>
+    <text x="257" y="104" text-anchor="middle" fill="var(--muted)">samples → r_ct</text>
+    <rect x="358" y="40" width="150" height="74" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+    <text x="433" y="66" text-anchor="middle" font-weight="700">3. Tighten</text>
+    <text x="433" y="86" text-anchor="middle" fill="var(--muted)">shrink safe set,</text>
+    <text x="433" y="104" text-anchor="middle" fill="var(--muted)">bound d̂</text>
+    <rect x="534" y="40" width="150" height="74" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+    <text x="609" y="66" text-anchor="middle" font-weight="700">4. Solve PO-CBVF</text>
+    <text x="609" y="86" text-anchor="middle" fill="var(--muted)">HJ on the</text>
+    <text x="609" y="104" text-anchor="middle" fill="var(--muted)">estimator model</text>
+    <rect x="710" y="40" width="144" height="74" rx="10" fill="var(--panel)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="782" y="66" text-anchor="middle" font-weight="700">5. Filter x̂</text>
+    <text x="782" y="86" text-anchor="middle" fill="var(--muted)">QP every step</text>
+    <text x="782" y="104" text-anchor="middle" fill="var(--muted)">→ true x safe</text>
+    <line x1="156" y1="77" x2="180" y2="77" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+    <line x1="332" y1="77" x2="356" y2="77" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+    <line x1="508" y1="77" x2="532" y2="77" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+    <line x1="684" y1="77" x2="708" y2="77" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+    <text x="430" y="160" text-anchor="middle" fill="var(--muted)">offline: steps 1-4 (once)  ·  online: step 5 (50 times per second)</text>
+  </g>
+</svg>
+</figure>
+<div class="card">
+<p><b>Step 1, calibrate.</b> Run the closed loop $M=500$ times with access to the true state (in simulation or a lab), score each run by its largest error, and take the conformal quantile $q_\alpha$ (Eqs. 14-15).</p>
+<p><b>Step 2, tube.</b> The bound holds at the sample times. Between samples the error can grow; with a growth bound $\|\dot\varepsilon\|\le L_\varepsilon\|\varepsilon\|+\bar w$, Grönwall's inequality gives a continuous-time radius (Eq. 22). With $L_\varepsilon=0$: $r_{ct}=q_\alpha+\bar w\,(s-t_k)$.</p>
+<p><b>Step 3, tighten.</b> Two things change. (a) The margin is shrunk so that any true state within $r_{ct}$ of the estimate is safe: $\ell_\alpha(\hat x)=\min_{\|\varepsilon\|\le r_{ct}} l(\hat x+\varepsilon)$, which for round obstacles means growing each obstacle by $r_{ct}$. (b) The estimator's correction term is treated as a bounded disturbance $\hat d$ in the estimator model $\dot{\hat p}=\hat v+\hat d$, with $\|\hat d\|\le L_{est}(L_{h}\,r_{ct}+\bar v)$ (Eqs. 23-26).</p>
+<p><b>Step 4, solve the PO-CBVF</b> (Definition 1, Eq. 32): the CBVF equation of Section 2.5, written in the estimator's state space with the tightened margin and the $\hat d$ disturbance.</p>
+<p><b>Step 5, filter.</b> At run time, solve the QP on the estimate (Eqs. 35-36). Theorem 2: the true state stays in $\mathcal L$ for the whole horizon with probability $\ge 1-\alpha$.</p>
+</div>
+</section>
+
+<!-- ===================================================== 4 IMPLEMENTATION -->
+<section id="impl">
+<h2>4 · How I implemented it, step by step</h2>
+<p>The authors have not released code, so everything below was written from the paper. Each step names the file in the repository. Where the paper leaves a choice open (grid size, obstacle layout, nominal controller), I state mine.</p>
+
+<div class="step"><div class="n">1</div><div>
+<h3>System, sensor and observer</h3><div class="file">pocbvf/system.py</div>
+<p>The paper's Section 5 values: $u\in[-4,4]^2$, $d\in[-0.1,0.1]^2$, noise $\pm0.1$, observer gain $L=2$, time step $0.02$ s, discount $\gamma=1$, obstacle radius 2. The paper does not give an obstacle layout, so I placed two obstacles that each cut 0.15 m into the straight path to the goal, one from each side, so the filter must act without blocking the robot head-on. The nominal controller drives toward the goal at 1.5 m/s using the estimate.</p>
+<pre>self.corr = L_GAIN * (y - ph)                   # observer correction = d^ in the analysis model
+self.x  = np.hstack([p + DT * v, v + DT * (u + d)])
+self.xh = np.hstack([ph + DT * (vh + self.corr), vh + DT * u])</pre>
+</div></div>
+
+<div class="step"><div class="n">2</div><div>
+<h3>Conformal calibration</h3><div class="file">pocbvf/conformal.py</div>
+<p>500 rollouts of 15 s, score $=\max_k\|x_k-\hat x_k\|$ over the 4D error, $\alpha=0.05$, so $k=\lceil 501\cdot0.95\rceil=476$. Between-sample growth $\bar w$ is measured from the same rollouts; $\bar v=\sqrt2\cdot0.1$ bounds the noise box. Result for the paper's setting: $q_\alpha=0.121$, $r_{ct}=0.131$, $\|\hat d\|\le0.544$.</p>
+<p>A useful property I checked: for this observer, the error dynamics $\dot\varepsilon_p=\varepsilon_v-L(\varepsilon_p+n)$, $\dot\varepsilon_v=d$ do not depend on $u$, so the error distribution is the same under any controller. That makes the exchangeability assumption easy to meet.</p>
+</div></div>
+
+<div class="step"><div class="n">3</div><div>
+<h3>Grid Hamilton-Jacobi solver</h3><div class="file">pocbvf/hj.py</div>
+<p>The paper names no toolbox, so I wrote one: a 129 × 81 × 21 × 21 grid over $(p_x,p_y,v_x,v_y)$ (4.6 million points), a Lax-Friedrichs numerical Hamiltonian, and forward Euler steps backward in time with a CFL step size, until the value stops changing. For dynamics $\dot p=v+d_p,\ \dot v=u+d_v$ the Hamiltonian has a closed form:</p>
+$$H=\nabla_pB\cdot v-r_{pos}\|\nabla_pB\|+(u_{max}-d_{vel})\,(|\partial_{v_x}B|+|\partial_{v_y}B|).$$
+<p>One value function per filter: the full-state CBVF ($r_{pos}=0$, $d_{vel}=0.1$, margin $l$) and the PO-CBVF ($r_{pos}=\hat d$ bound, margin $l-r_{ct}$). A lesson from debugging: in the backward-time form, the Lax-Friedrichs dissipation enters with a <em>plus</em> sign. My first version had it backwards and blew up.</p>
+<pre>Vn = np.minimum(m, V + dt * (H + diss + gamma * V))   # 0 = min(l - B, B_t + H + gamma B)</pre>
+</div></div>
+
+<div class="step"><div class="n">4</div><div>
+<h3>The QP safety filter</h3><div class="file">pocbvf/filter.py</div>
+<p>The worst-case disturbance is taken in closed form, so the constraint is one line $a\cdot u\ge b$ with $a=\nabla_vB$. The 2D QP is solved exactly: if the clipped nominal command satisfies it, it is optimal; otherwise the optimum lies on the constraint line inside the control box. Value and gradient come from multilinear interpolation on the grid.</p>
+</div></div>
+
+<div class="step"><div class="n">5</div><div>
+<h3>Monte Carlo comparison</h3><div class="file">run_all.py</div>
+<p>Four filters, 300 runs each, with <b>identical noise sequences</b> so the comparison is fair: <span class="dot" style="background:var(--true)"></span>true-state CBVF (reference only), <span class="dot" style="background:var(--naive)"></span>the same CBVF fed the estimate ("ignore noise"), <span class="dot" style="background:var(--paper)"></span>the paper's PO-CBVF, and <span class="dot" style="background:var(--ours)"></span>my variant (Section 6). Two settings: the paper's values, and a "weak camera" (observer gain 0.3, noise ±0.3).</p>
+</div></div>
+
+<div class="step"><div class="n">6</div><div>
+<h3>UR5e demonstration</h3><div class="file">make_video.py</div>
+<p>To show the method on a real-looking robot, the 4D model is used as a <b>reduced-order model</b> of a UR5e's tool tip in a plane above a table (1 model metre = 5 cm). The arm follows the filtered tip by damped-least-squares inverse kinematics. Partial observability is shown as camera error on the obstacle positions: the filter believes tip − obstacle $=\hat x-c$, so it "sees" each obstacle at $c+(x-\hat x)$ (the white ghosts in the video).</p>
+</div></div>
+</section>
+
+<!-- ===================================================== 5 RESULTS -->
+<section id="results">
+<h2>5 · Results</h2>
+<div class="card">
+<div class="tblwrap"><table id="restable">
+<thead><tr><th>Setting</th><th><span class="dot" style="background:var(--naive)"></span>Ignore noise</th><th><span class="dot" style="background:var(--paper)"></span>PO-CBVF (paper)</th><th><span class="dot" style="background:var(--ours)"></span>PO-CBVF + ours</th><th><span class="dot" style="background:var(--true)"></span>True state</th></tr></thead>
+<tbody></tbody></table></div>
+<p class="file">300 runs per cell. Each cell shows the share of runs that touched an obstacle, then the mean time to reach the goal.</p>
+</div>
+<ul>
+  <li><b>The guarantee held</b> in all 1,200 PO-CBVF runs (both variants, both settings): no run touched an obstacle.</li>
+  <li><b>With the paper's own values</b>, the estimate is accurate (about 2 cm after start-up), so ignoring the noise also stayed safe here.</li>
+  <li><b>With a slow, noisy estimator</b>, ignoring the noise touched an obstacle in 2.7% of runs. The PO-CBVF did not.</li>
+  <li><b>The price</b> is caution: the PO-CBVF keeps a wider berth and arrives about 1.8 s later than the true-state reference.</li>
+</ul>
+<figure><img src="assets/paths.png" alt="Paths of the four filters through two obstacles"><figcaption>One run, weak-camera setting, identical noise for all four filters. The PO-CBVF variants keep a wider berth; "ignore noise" passes closest.</figcaption></figure>
+<figure><img src="assets/value_slices.png" alt="Zero level sets of the value functions"><figcaption>Where it is safe to be at rest ($v=0$): the zero level set of each value function. The PO-CBVF's safe set is smaller because it accounts for estimation error; my variant's is a little larger than the paper's, with the same guarantee.</figcaption></figure>
+<h3>Video: the method on a UR5e</h3>
+<figure><video controls preload="metadata" src="assets/ur5e_po_cbvf_demo.mp4"></video><figcaption>Left: ignoring camera noise, the tool touches the obstacle. Middle: PO-CBVF. Right: PO-CBVF with my calibration. Same noise in all three. <span id="ytlink"></span></figcaption></figure>
+<p>Code and data: <a href="https://github.com/" id="ghlink">GitHub repository (link to add)</a></p>
+</section>
+
+<!-- ===================================================== 6 EXTENSION -->
+<section id="extension">
+<h2>6 · A small extension: same guarantee, less conservative</h2>
+<p>While reproducing the results I noticed where the caution comes from:</p>
+<figure><img src="assets/error_time.png" alt="Estimation error over time"><figcaption>Estimation error over time in 500 runs (paper's setting). The largest error almost always happens in the first moments, when the estimate is still the raw first measurement. After about one second it settles near 2 cm.</figcaption></figure>
+<ol>
+  <li>The score $\max_k\|\varepsilon_k\|$ is set by the <b>start-up transient</b>, so the tube is sized for a moment when the robot is still far from every obstacle.</li>
+  <li>The bound on $\hat d$ adds the <b>worst-case noise</b> at every step, even though the observer's correction is usually much smaller.</li>
+</ol>
+<div class="callout">
+<p><b>Change.</b> (1) Score the error only after a 1 s warm-up; the guarantee is then stated from that time on, with the robot starting far from obstacles. (2) Calibrate $\hat d$ directly: $D^{(j)}=\max_{t_k\ge T_0}\|\hat d_k\|$. Use $\alpha/2$ for each score.</p>
+<p><b>Why the guarantee still holds.</b> By the union bound (Section 2.7), the error tube and the $\hat d$ bound both hold with probability at least $1-\alpha/2-\alpha/2=1-\alpha$, which is exactly what Theorem 2 needs.</p>
+<p><b>Effect.</b> The extra time the method needs fell by 34-44% with no violations. With the paper's gain and noise ±0.3, the tube shrinks from 0.39 to 0.16 and the $\hat d$ bound from 1.63 to 0.96.</p>
+</div>
+<p>This is a small change on one example, and I may have missed details of the original formulation. I see it as a starting point for a question I care about: <em>how to keep a guarantee while making it as tight as possible</em>.</p>
+</section>
+
+<!-- ===================================================== 7 CATEGORIES -->
+<section id="categories">
+<h2>7 · Which assumption broke? From safety guarantees to failure categories</h2>
+<p>This is the link to my own work on <b>categorising robot failures</b> (perception, hardware, physical). The PO-CBVF guarantee rests on assumptions, and each assumption matches a failure category. When the guarantee breaks, <em>which</em> assumption broke tells you what kind of failure it is, and so whether the robot should learn from it at all.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>The paper assumes</th><th>Broken by</th><th>Runtime signal (observable)</th><th>Right response</th></tr></thead>
+<tbody>
+<tr><td>estimation error stays in its conformal tube</td><td><b>perception</b> fault (camera frozen, biased)</td><td>observer innovation $\|\hat d\|=\|L(y-\hat p)\|$ above its bound</td><td>repair the sensor; don't train on it</td></tr>
+<tr><td>dynamics match the model, $|d|$ within bounds</td><td><b>hardware</b> fault (weak motor)</td><td>accelerometer vs command $\|a_{imu}-u\|$ above its bound</td><td>maintenance; don't train on it</td></tr>
+<tr><td>both hold, yet the task fails</td><td><b>physical / policy</b> failure</td><td>monitors quiet, $B\ge0$ throughout</td><td>a learning problem: train on it</td></tr>
+</tbody></table></div>
+<div class="simple"><b>Simply:</b> the true state can't be seen at run time, so the tube can't be checked directly. But the estimator's correction $\hat d$ <em>can</em> be computed from the sensors, and in my extension (Section 6) I had already calibrated it with conformal prediction. So the same bound doubles as an online perception-fault alarm with a known false-alarm rate. A second calibrated alarm on the accelerometer covers hardware. Each uses $\alpha/2$, so false alarms are at most $\alpha=5\%$ per run.</div>
+<p><b>Rule:</b> if the hardware alarm fires (first or together), it's hardware, because a weak actuator also corrupts the estimate and the innovation follows. If only the innovation alarm fires, it's perception. On any alarm the robot brakes to a stop (the "repair, don't learn" route). After a hardware alarm, the estimator integrates the accelerometer instead of the command.</p>
+<figure><img src="assets/monitor_signals.png" alt="Monitor signals for a camera freeze and a weak motor"><figcaption>Both signals divided by their conformal bounds (dashed line = 1). Camera freeze: only the perception monitor crosses. Weak motor: the hardware monitor crosses first, about 0.1 s after onset, and the innovation rises later.</figcaption></figure>
+<div class="card"><div class="tblwrap"><table>
+<thead><tr><th>Scenario (300 runs each, fault at a random time in 2-7 s)</th><th>Detected</th><th>Right category</th><th>Median delay</th><th>Collisions: alarm only → with safe stop</th></tr></thead>
+<tbody>
+<tr><td>No fault</td><td class="num">false alarms 2.0% (bound ≤ 5%)</td><td class="num">n/a</td><td class="num">n/a</td><td class="num">0% → 0%</td></tr>
+<tr><td>Camera freeze (perception)</td><td class="num">100%</td><td class="num">100%</td><td class="num">0.21 s</td><td class="num">72.7% → 2.7%</td></tr>
+<tr><td>Weak motor, 30% force (hardware)</td><td class="num">100%</td><td class="num">100%</td><td class="num">0.09 s</td><td class="num">76.3% → 33.0%</td></tr>
+</tbody></table></div>
+<p class="file">Paper setting (gain 2, noise ±0.1), the paper's PO-CBVF filter; code: <code>pocbvf/monitor.py</code>, <code>run_monitor.py</code>.</p></div>
+<ul>
+  <li>Without the alarm, a broken assumption silently voids the guarantee: about three in four faulty runs collided, even with the PO-CBVF filter running.</li>
+  <li>The remaining weak-motor collisions are a physical limit: with 30% of the force, the robot sometimes cannot stop in time. That calls for a hardware response (slow down, quarantine), not more learning.</li>
+  <li>A lesson I learned the hard way: my first run calibrated on 15 s runs and tested on 20 s runs, and false alarms came out at 6.7%, above the bound. The per-run maximum score must use the same horizon in calibration and test, or exchangeability breaks.</li>
+  <li>Not covered: physical/contact failures (outside this point-mass model), and faults that look like noise. The fault types are injected, not real.</li>
+</ul>
+</section>
+
+<!-- ===================================================== 8 LIMITS -->
+<section id="limits">
+<h2>8 · Honest limits</h2>
+<ul class="honest">
+  <li>Only the paper's single example type (planar double integrator) is reproduced. The obstacle layout, nominal controller and grid are my choices.</li>
+  <li>I use a time-invariant tube (the largest over one sampling interval) instead of the paper's piecewise tube. It is a superset, so it is more cautious, not less safe.</li>
+  <li>The grid solver adds about 0.13 m of numerical margin (visible in the true-state filter's clearance). This also helps the "ignore noise" baseline.</li>
+  <li>My calibration gives $q_\alpha=0.121$, against the paper's 0.074. The paper does not state how the estimate is initialised; I start it at the first measurement.</li>
+  <li>The UR5e is driven kinematically; the guarantee covers the reduced-order model, not the arm's dynamics.</li>
+</ul>
+</section>
+
+<footer>
+<p>Paper: N. Jahanshahi and M. Chen, "Control Barrier-Value Functions under Partial Observability: Safety Guarantees via Conformal Prediction," CDC 2026, arXiv:2608.13819. Background: CBVF (Choi, Lee, Sreenath, Tomlin, Herbert, 2021); conformal prediction (Vovk et al.; Angelopoulos & Bates).</p>
+<p>Walkthrough, implementation and experiments: Shuja Abidi · <a href="../../">website</a>. UR5e model: MuJoCo Menagerie (BSD-3-Clause). This page is not affiliated with the authors.</p>
+</footer>
+</main>
+
+<script>
+// ---------- theme toggle (remembered per visitor) ----------
+(function(){
+  const root=document.documentElement, btn=document.getElementById('themebtn');
+  try{const t=localStorage.getItem('pocbvf-theme'); if(t) root.dataset.theme=t;}catch(e){}
+  btn.addEventListener('click',()=>{
+    const dark = root.dataset.theme ? root.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try{localStorage.setItem('pocbvf-theme',root.dataset.theme);}catch(e){}
+  });
+})();
+
+// ---------- math ----------
+document.addEventListener('DOMContentLoaded',()=>{
+  if(window.renderMathInElement) renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});
+});
+
+// ---------- results table ----------
+(function(){
+  const R=window.RESULTS||{}, tb=document.querySelector('#restable tbody');
+  const cell=r=>`${(100*r.violation_rate).toFixed(1)}% · ${r.time_to_goal_mean?r.time_to_goal_mean.toFixed(1)+' s':'never'}`;
+  for(const [name,row] of Object.entries(R)){
+    const res=row.results, tr=document.createElement('tr');
+    tr.innerHTML=`<td>${name==='paper'?"Paper's values":'Weak camera'}<br><span class="file">gain ${row.L}, noise ±${row.noise}</span></td>`+
+      ['naive','po_cbvf','po_cbvf_ext','oracle'].map(m=>`<td class="num">${cell(res[m])}</td>`).join('');
+    tb.appendChild(tr);
+  }
+})();
+
+// ---------- conformal widget ----------
+(function(){
+  const C=window.CALIB; if(!C) return;
+  const svg=document.getElementById('cphist'), sel=document.getElementById('cpset'), sl=document.getElementById('cpslider'),
+        warm=document.getElementById('cpwarm'), out=document.getElementById('cpread'), al=document.getElementById('cpalpha');
+  const NS='http://www.w3.org/2000/svg';
+  const el=(t,a)=>{const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); return e;};
+  function draw(){
+    const d=C[sel.value], s=(warm.checked?d.score_warm:d.score).slice().sort((a,b)=>a-b), M=s.length, a=+sl.value;
+    al.textContent=a.toFixed(2);
+    const k=Math.min(M,Math.ceil((M+1)*(1-a))), q=s[k-1];
+    const lo=0, hi=Math.max(...d.score)*1.05, bins=40, W=820, H=260, x0=40, x1=W-14, y0=16, y1=H-34;
+    const cnt=new Array(bins).fill(0); s.forEach(v=>{cnt[Math.min(bins-1,Math.floor((v-lo)/(hi-lo)*bins))]++;});
+    const cmax=Math.max(...cnt);
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    const X=v=>x0+(v-lo)/(hi-lo)*(x1-x0), bw=(x1-x0)/bins;
+    cnt.forEach((c,i)=>{
+      const left=lo+i*(hi-lo)/bins, over=left>=q;
+      svg.appendChild(el('rect',{x:x0+i*bw+1,y:y1-(c/cmax)*(y1-y0),width:Math.max(1,bw-2),height:(c/cmax)*(y1-y0),rx:2,
+        fill:over?'var(--naive)':'var(--true)',opacity:over?0.85:0.7}));
+    });
+    svg.appendChild(el('line',{x1:x0,y1:y1,x2:x1,y2:y1,stroke:'var(--line)'}));
+    svg.appendChild(el('line',{x1:X(q),y1:y0-6,x2:X(q),y2:y1,stroke:'var(--ink)','stroke-width':2,'stroke-dasharray':'5 4'}));
+    const t=el('text',{x:Math.min(X(q)+8,x1-150),y:y0+10,'font-size':14}); t.textContent=`bound q = ${q.toFixed(3)} m`; svg.appendChild(t);
+    for(let v=0; v<=hi; v+=hi>0.3?0.1:0.025){const tk=el('text',{x:X(v),y:H-12,'font-size':12,'text-anchor':'middle',fill:'var(--muted)'}); tk.textContent=v.toFixed(v<0.1&&hi<0.3?3:1); svg.appendChild(tk);}
+    const xl=el('text',{x:x1,y:H-12,'font-size':12,'text-anchor':'end',fill:'var(--muted)'}); xl.textContent=''; svg.appendChild(xl);
+    const above=s.filter(v=>v>q).length;
+    out.innerHTML=`Score = largest error in each of ${M} calibration runs${warm.checked?' (after the 1 s warm-up)':''}. `+
+      `Rank k = ⌈(M+1)(1−α)⌉ = <b>${k}</b>, so the bound is <b>q = ${q.toFixed(3)} m</b>; ${above} of ${M} runs lie above it (red). `+
+      `A new run stays under q with probability ≥ ${(1-a).toFixed(2)}.`;
+  }
+  [sel,sl,warm].forEach(e=>e.addEventListener('input',draw)); draw();
+})();
+</script>
+</body>
+</html>

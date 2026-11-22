@@ -159,6 +159,7 @@
     <a href="#semantic">Semantic Safety</a>
     <a href="#robotics">Robotics</a>
     <a href="#failure">Robot Failures</a>
+    <a href="#papers">Paper Walkthroughs</a>
     <a href="#simulation">Simulation</a>
     <a href="#products">AI Products</a>
     <a href="#experience">Experience</a>
@@ -476,6 +477,34 @@
     </div>
     <figure><img src="images/robot_failure_sim.jpg" alt="A Go2 robot walking in a photo-real forest with a blue incident banner reading Perception, Lidar returns. The robot's head camera, the diagnosis and graphs of the anomaly score and cause signals are beside it." width="1280" height="720" loading="lazy">
     <figcaption>Simulated Go2 with a lidar dropout: the tool names the lidar as the root cause before the robot hits the rock it never mapped.</figcaption></figure>
+  </section>
+
+  <section class="field" id="papers">
+    <p class="num">7</p>
+    <h2>Paper Walkthroughs</h2>
+    <p class="sub">Recent robotics papers, re-implemented from scratch and explained in plain language: what each one solves, the ideas it needs, how I built it, and what I found.</p>
+    <div class="cols">
+      <div>
+        <h3 style="margin-top:0">PO-CBVF: safety under partial observability</h3>
+        <p class="note">N. Jahanshahi and M. Chen, <i>Control Barrier-Value Functions under Partial Observability: Safety Guarantees via Conformal Prediction</i>, CDC 2026. Independent re-implementation; not the authors' code.</p>
+        <p>A robot rarely knows its exact state; it runs an estimator on noisy sensors. This paper calibrates the estimation error with conformal prediction and builds a Hamilton-Jacobi safety filter that runs on the estimate, yet keeps the true robot safe with a chosen probability.</p>
+        <p>I wrote the grid Hamilton-Jacobi solver, the conformal calibration and the QP filter in NumPy, ran 1,200 Monte Carlo runs and showed it on a UR5e arm. Two additions: a calibration change that keeps the 95% guarantee but makes the robot less cautious, and runtime monitors that tell which assumption broke, perception or hardware, linking the paper to my work on robot failure categories.</p>
+        <p class="links"><a href="papers/po-cbvf/">Open the walkthrough</a></p>
+      </div>
+      <div class="panel">
+        <h3>Results</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Test</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Safety guarantee, 1,200 runs</td><td>held every time (0 violations)</td></tr>
+            <tr><td>Calibration change</td><td>34–44% less extra time to goal, same 95% guarantee</td></tr>
+            <tr><td>Camera freeze / weak motor, 300 runs each</td><td>100% detected and correctly labelled perception / hardware; false alarms 2%</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <figure><a href="papers/po-cbvf/"><img src="images/paper_pocbvf_ur5e.jpg" alt="Three UR5e arms side by side guiding a tool past two obstacles: one ignores camera noise, one uses the paper's filter, one uses the calibration change, with a clearance graph below." width="1280" height="720" loading="lazy"></a>
+    <figcaption>The same camera noise in all three runs: ignoring it, the tool touches an obstacle; the paper's filter and the calibration change keep it clear.</figcaption></figure>
   </section>
 
   <section class="field" id="simulation">

@@ -1,0 +1,138 @@
+{
+ "paper": {
+  "L": 2.0,
+  "noise": 0.1,
+  "results": {
+   "oracle": {
+    "method": "oracle",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.13696621246925741,
+    "min_clearance_worst": 0.13411143781730228,
+    "reached_rate": 1.0,
+    "time_to_goal_mean": 10.052133333333334,
+    "infeasible_steps": 0,
+    "seconds": 4.9
+   },
+   "naive": {
+    "method": "naive",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.1367330246942138,
+    "min_clearance_worst": 0.04138727387999985,
+    "reached_rate": 1.0,
+    "time_to_goal_mean": 10.071733333333334,
+    "infeasible_steps": 0,
+    "seconds": 4.9
+   },
+   "po_cbvf": {
+    "method": "po_cbvf",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.6218025902954851,
+    "min_clearance_worst": 0.5651816011439581,
+    "reached_rate": 1.0,
+    "time_to_goal_mean": 11.847999999999999,
+    "infeasible_steps": 0,
+    "seconds": 6.0
+   },
+   "po_cbvf_ext": {
+    "method": "po_cbvf_ext",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.4955490958224637,
+    "min_clearance_worst": 0.41908544220725386,
+    "reached_rate": 1.0,
+    "time_to_goal_mean": 11.056733333333334,
+    "infeasible_steps": 0,
+    "seconds": 5.6
+   }
+  },
+  "cal": {
+   "noise": 0.1,
+   "L_gain": 2.0,
+   "M": 500,
+   "alpha": 0.05,
+   "k": 476,
+   "q_alpha": 0.12062678644402873,
+   "w_bar": 0.5038365637263035,
+   "r_ct": 0.1307035177185548,
+   "v_bar": 0.14142135623730953,
+   "r_dhat": 0.5442497479117286,
+   "warmup": 1.0,
+   "ext_q": 0.10275974389204046,
+   "ext_r_ct": 0.11283647516656653,
+   "ext_r_dhat": 0.35572116355114775,
+   "score_mean": 0.08284004992217003,
+   "score_max": 0.13833587289832866
+  }
+ },
+ "weak camera": {
+  "L": 0.3,
+  "noise": 0.3,
+  "results": {
+   "oracle": {
+    "method": "oracle",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.13696621246925741,
+    "min_clearance_worst": 0.13411143781730228,
+    "reached_rate": 1.0,
+    "time_to_goal_mean": 10.052133333333334,
+    "infeasible_steps": 0,
+    "seconds": 1.9
+   },
+   "naive": {
+    "method": "naive",
+    "trials": 300,
+    "violation_rate": 0.02666666666666667,
+    "min_clearance_mean": 0.1169174026078493,
+    "min_clearance_worst": -0.06268262070921993,
+    "reached_rate": 0.9966666666666667,
+    "time_to_goal_mean": 10.112508361204014,
+    "infeasible_steps": 0,
+    "seconds": 1.9
+   },
+   "po_cbvf": {
+    "method": "po_cbvf",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.5730835674009095,
+    "min_clearance_worst": 0.39460710957922407,
+    "reached_rate": 0.9866666666666667,
+    "time_to_goal_mean": 11.830608108108109,
+    "infeasible_steps": 0,
+    "seconds": 2.2
+   },
+   "po_cbvf_ext": {
+    "method": "po_cbvf_ext",
+    "trials": 300,
+    "violation_rate": 0.0,
+    "min_clearance_mean": 0.487270861546538,
+    "min_clearance_worst": 0.3078325460489335,
+    "reached_rate": 0.9933333333333333,
+    "time_to_goal_mean": 11.229865771812081,
+    "infeasible_steps": 0,
+    "seconds": 2.1
+   }
+  },
+  "cal": {
+   "noise": 0.3,
+   "L_gain": 0.3,
+   "M": 500,
+   "alpha": 0.05,
+   "k": 476,
+   "q_alpha": 0.35993727399212344,
+   "w_bar": 0.25010257242726325,
+   "r_ct": 0.3649393254406687,
+   "v_bar": 0.4242640687119285,
+   "r_dhat": 0.23676101824577916,
+   "warmup": 1.0,
+   "ext_q": 0.2899134440408942,
+   "ext_r_ct": 0.29491549548943946,
+   "ext_r_dhat": 0.19163549270533006,
+   "score_mean": 0.23522291307395876,
+   "score_max": 0.41500761869498587
+  }
+ }
+}
