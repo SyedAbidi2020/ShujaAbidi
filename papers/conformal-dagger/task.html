@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 1: Task and Expert</title>
+<meta name="description" content="Step 1 of the ConformalDAgger rebuild: the cup-moving task, what the robot sees and does, the expert, and the four ways the expert's goal changes.">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">ConformalDAgger · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="task.html" aria-current="page">1 Task</a>
+    <a href="learner.html">2 Learner</a>
+    <a href="iqt.html">3 IQT &amp; Asking</a>
+    <a href="experiments.html">4 Experiments</a>
+    <a href="reactions.html">5 Reactions</a>
+    <a href="results.html">6 Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Step 1 · env.py</p>
+    <h1>The task, the expert, and how the expert changes</h1>
+    <p class="lead">Before any learning, we need a small world: a robot hand holding a cup, a goal, and an expert who always knows the right move. Then we make the expert change its goal over time, which is what the paper is about.</p>
+    <ul class="contents">
+      <li><a href="#task"><b>1</b>The task</a></li>
+      <li><a href="#io"><b>2</b>What the robot sees and does</a></li>
+      <li><a href="#expert"><b>3</b>The expert</a></li>
+      <li><a href="#shifts"><b>4</b>Four ways the expert changes</a></li>
+      <li><a href="#check"><b>5</b>How I will check this step</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="task">
+    <p class="num">1</p>
+    <h2>The task</h2>
+    <p class="sub">Move a cup from a fixed start to the expert's goal, keeping the gripper closed.</p>
+    <p>This is the paper's simulated task. It is deliberately simple: a point moving in 3D space plus a gripper that is either closed (1) or open (0). There is no physics engine; the next position is simply the action the robot chooses. That keeps attention on the learning and asking, not on control.</p>
+    <p>Each <b>run</b> lasts up to 100 time steps. It ends early when the cup is within 0.01 of the goal.</p>
+    <p class="note">The paper does not list the exact coordinates of the start and goals. I chose the values below (units are metres, the cup moves at the same height z = 0.10). Only their layout matters: two goals on opposite sides, and two in-between goals for the drift setting.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Point</th><th>x</th><th>y</th><th>z</th><th>Used in</th></tr></thead>
+        <tbody>
+          <tr><td>Start</td><td>0.00</td><td>0.00</td><td>0.10</td><td>all settings</td></tr>
+          <tr><td>Moved start</td><td>0.00</td><td>0.12</td><td>0.10</td><td>environment shift</td></tr>
+          <tr><td>Goal g0 (left)</td><td>0.30</td><td>0.15</td><td>0.10</td><td>the original goal</td></tr>
+          <tr><td>Goal g1a</td><td>0.30</td><td>0.05</td><td>0.10</td><td>drift, episodes 5–7</td></tr>
+          <tr><td>Goal g1b</td><td>0.30</td><td>−0.05</td><td>0.10</td><td>drift, episodes 8–10</td></tr>
+          <tr><td>Goal g1 (right)</td><td>0.30</td><td>−0.15</td><td>0.10</td><td>shift and drift, the final goal</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="field" id="io">
+    <p class="num">2</p>
+    <h2>What the robot sees and does</h2>
+    <p class="sub">It sees its last 3 positions (12 numbers) and outputs its next position (4 numbers).</p>
+    <div class="pair">
+      <div class="panel">
+        <h3>Input x: 12 numbers</h3>
+        <p>For each of the last 3 time steps: x, y, z and gripper (1 = closed).</p>
+<pre class="code">step t−2:  0.000  0.000  0.100  1
+step t−1:  0.008  0.004  0.100  1
+step t  :  0.017  0.008  0.100  1</pre>
+        <p>Why 3 steps? From positions alone the robot can't tell which way it is moving. Three steps give it its own velocity, so it can continue a motion smoothly.</p>
+      </div>
+      <div class="panel">
+        <h3>Action a: 4 numbers</h3>
+        <p>The next position and gripper state.</p>
+<pre class="code">next:      0.026  0.013  0.100  1</pre>
+        <p>At the start of a run, the "last 3 positions" are all the start point, so the robot has to begin moving from rest.</p>
+        <p>The world then simply moves the cup to that position. The new position becomes the newest of the 3 remembered steps.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="field" id="expert">
+    <p class="num">3</p>
+    <h2>The expert</h2>
+    <p class="sub">A perfect teacher: it always moves straight toward its current goal, at most 0.01 per step.</p>
+<pre class="eq">direction = goal − position
+step      = min(0.01, |direction|)
+expert action = position + step × direction / |direction|      (gripper stays 1)</pre>
+    <h3>Worked example</h3>
+    <p>The cup is at (0.10, 0.05, 0.10) and the goal is g0 = (0.30, 0.15, 0.10).</p>
+<pre class="calc">direction = (0.30−0.10, 0.15−0.05, 0) = (0.20, 0.10, 0)
+|direction| = √(0.20² + 0.10²) = 0.2236
+step = min(0.01, 0.2236) = 0.01
+expert action = (0.10, 0.05, 0.10) + 0.01 × (0.894, 0.447, 0)
+              = (0.1089, 0.0545, 0.10, 1)</pre>
+    <p>From the start to g0 is 0.335 away. The run ends once the cup is within 0.01 of the goal, so the expert needs 33 steps (checked in the code). The cap of 0.01 is what the paper calls ω.</p>
+    <div class="key"><p>In the paper, the expert is an <b>oracle</b>: it never makes mistakes. Real people are noisy; that is left out here on purpose, so that every error comes from the robot or from the expert changing goal.</p></div>
+  </section>
+
+  <section class="field" id="shifts">
+    <p class="num">4</p>
+    <h2>Four ways the expert changes</h2>
+    <p class="sub">Choose a setting and move through the 15 episodes. The line is where the expert wants the cup to go in that episode.</p>
+    <div class="play demo">
+      <div class="buttons" role="group" aria-label="Choose a setting">
+        <button type="button" data-shift="stationary" aria-pressed="false">Stationary</button>
+        <button type="button" data-shift="shift" aria-pressed="true">Shift</button>
+        <button type="button" data-shift="drift" aria-pressed="false">Drift</button>
+        <button type="button" data-shift="env" aria-pressed="false">Environment shift</button>
+      </div>
+      <div class="ctrl">
+        <label for="ep">Episode <input type="range" id="ep" min="0" max="15" step="1" value="5"></label>
+        <output id="epOut" for="ep">5</output>
+        <button type="button" id="epPlay" class="primary">Play all</button>
+      </div>
+      <div class="world"><svg id="shiftSvg" viewBox="0 0 640 380" role="img" aria-label="Top-down view of the start point, the goals, and the expert's path in the chosen episode."></svg></div>
+      <p id="shiftMsg" class="msg"></p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Setting</th><th>What changes</th><th>What it tests</th></tr></thead>
+        <tbody>
+          <tr><td><b>Stationary</b></td><td>Nothing; the goal stays g0.</td><td>A good method should ask less and less as it learns.</td></tr>
+          <tr><td><b>Shift</b></td><td>g0 → g1 suddenly at episode 5.</td><td>Does the robot notice quickly and ask more?</td></tr>
+          <tr><td><b>Drift</b></td><td>g0 → g1a (ep 5) → g1b (ep 8) → g1 (ep 11).</td><td>Can it notice several small changes, not just one big one?</td></tr>
+          <tr><td><b>Environment shift</b></td><td>The start position moves from episode 1; the goal does not change.</td><td>A change in the world, not in the expert. Here asking more is not really needed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Episode 0 is the demonstration data before deployment (always start → g0). Each episode has 2 runs.</p>
+  </section>
+
+  <section class="field" id="check">
+    <p class="num">5</p>
+    <h2>Checks: done (17 Nov 2026)</h2>
+    <p class="sub"><code>env.py</code> is written and <code>test_env.py</code> passes all 15 checks.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Check</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Expert reaches each goal, never more than 0.01 per step</td><td><span class="ok">✓</span> g0 and g1: 33 steps; g1a and g1b: 30 steps; longest step 0.0100</td></tr>
+          <tr><td>Observation has 12 numbers; starts as the start point ×3; newest state last</td><td><span class="ok">✓</span></td></tr>
+          <tr><td>Goal in each episode matches the table, for all 4 settings</td><td><span class="ok">✓</span></td></tr>
+          <tr><td>Environment shift: start moves from episode 1</td><td><span class="ok">✓</span></td></tr>
+          <tr><td>Run stops at 100 steps (a robot that never moves) or at the goal</td><td><span class="ok">✓</span> stopped at t = 100; expert ends 0.0054 from g0</td></tr>
+          <tr><td>The worked example above</td><td><span class="ok">✓</span> (0.1089, 0.0545, 0.1000, 1)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <img src="img/step1_expert_paths.png" alt="Four top-view panels of the expert's path in each of 16 episodes: stationary always to g0; shift to g0 then g1 from episode 5; drift to g0, g1a, g1b, then g1; environment shift from a moved start to g0." style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">
+      <figcaption>Made by <code>plot_step1.py</code> from the real code: the expert's path in every episode (colour = episode). This matches the demo above.</figcaption>
+    </figure>
+    <style>.ok{color:var(--green);font-weight:700}</style>
+  </section>
+
+  <div class="next"><a href="index.html">← Overview</a><a href="learner.html">2 Learner →</a></div>
+  <footer>ConformalDAgger rebuild · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · Paper: Zhao, Simmons, Admoni, Ramdas, Bajcsy, ICLR 2025.</footer>
+</main>
+<script src="site.js?v=1"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

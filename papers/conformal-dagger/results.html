@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 6: Results</title>
+<meta name="description" content="Step 6 of the ConformalDAgger rebuild: results, comparison with the paper, the UR5e arm version, and every choice the paper left open.">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">ConformalDAgger · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="task.html">1 Task</a>
+    <a href="learner.html">2 Learner</a>
+    <a href="iqt.html">3 IQT &amp; Asking</a>
+    <a href="experiments.html">4 Experiments</a>
+    <a href="reactions.html">5 Reactions</a>
+    <a href="results.html" aria-current="page">6 Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Step 6 · results</p>
+    <h1>Results</h1>
+    <p class="lead">Every number on this page was measured by running the code. Where my result differs from the paper, it says so.</p>
+    <ul class="contents">
+      <li><a href="#status"><b>1</b>Progress</a></li>
+      <li><a href="#repro"><b>2</b>Reproduction vs the paper</a></li>
+      <li><a href="#arm"><b>2b</b>On a real arm (UR5e) · videos</a></li>
+      <li><a href="#ext"><b>3</b>Reactions extension</a></li>
+      <li><a href="#choices"><b>4</b>Choices and differences from the paper</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="status">
+    <p class="num">1</p>
+    <h2>Progress</h2>
+    <p class="sub">How the rebuild was done, step by step.</p>
+    <ol class="timeline">
+      <li><time>17 Nov 2026</time><b>Plan and explainer site written</b><span>All six steps described with examples, before coding.</span></li>
+      <li><time>17 Nov 2026</time><b>Step 1 done: task and expert</b><span>env.py written; test_env.py passes 15/15 checks; expert paths plotted (see <a href="task.html#check">Step 1</a>).</span></li>
+      <li><time>17 Nov 2026</time><b>Step 2 done: learner and DAgger loop</b><span>policy.py, dagger.py; 30 runs, all 4 checks pass. Feedback every step recovers from the shift by episode 8; random 20% feedback recovers unevenly; no feedback never does (see <a href="learner.html#check">Step 2</a>).</span></li>
+      <li><time>17 Nov 2026</time><b>Step 3 done: IQT and ConformalDAgger</b><span>Worked examples match; the printed miss sign is a typo (s &gt; q is right). After the shift the robot's own questions rise from about 7% to 27% and fall back once relearned; it relearns faster and more steadily than random 20% feedback. Same pattern as the paper, but smaller and one episode later, because my margins are wider (see <a href="iqt.html#results3">Step 3</a>).</span></li>
+      <li><time>17 Nov 2026</time><b>Step 4 done: baselines and full grid</b><span>100 runs. ConformalDAgger relearns fastest after the shift and stays calibrated; the ensemble's margin misses 80–100%. Not reproduced: asking twice as often as the ensemble at the shift (see <a href="experiments.html#results4">Step 4</a>).</span></li>
+      <li><time>17 Nov 2026</time><b>On a real arm: UR5e + Robotiq 2F-85 in MuJoCo</b><span>arm_env.py (same interface, IK + joint servos, measured state); test_arm_env.py 8/8; ConformalDAgger runs unchanged and shows the same shift pattern over 5 seeds. Studio replay page and four clips (see <a href="#arm">below</a>).</span></li>
+      <li class="ai"><time>planned</time><b>Step 5: reactions extension</b><span>Designed (versions A–D), not run yet. See <a href="reactions.html">Step 5</a>.</span></li>
+    </ol>
+  </section>
+
+  <section class="field" id="repro">
+    <p class="num">2</p>
+    <h2>Reproduction vs the paper</h2>
+    <figure>
+      <img src="img/step4_grid.png" alt="Grid of 16 charts comparing all methods across the four settings." style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">
+      <figcaption>All methods, 4 settings, 5 seeds. Details and tables on <a href="experiments.html#results4">Step 4</a>.</figcaption>
+    </figure>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Claim in the paper</th><th>This rebuild</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>ConformalDAgger's margin stays near its coverage target; the ensemble's does not</td><td>ConformalDAgger 6% before, 13% peak (cautious); ensemble 80% before, 100% at the shift</td><td><b>Reproduced</b></td></tr>
+          <tr><td>After an expert shift, ConformalDAgger adapts better</td><td>Closest to the new goal: 0.058 / 0.031 / 0.012 m (eps 5–7), best of all methods</td><td><b>Reproduced</b></td></tr>
+          <tr><td>It asks more after a shift, then less once relearned</td><td>Robot's own questions 7% → 27% → 6%; total feedback 27% → 46% → 26%</td><td><b>Reproduced</b> (smaller jump)</td></tr>
+          <tr><td>At the shift it asks about twice as often as EnsembleDAgger (60% vs 30%)</td><td>34% vs 38% at episode 5; the ensemble peaks later (60% at ep 8)</td><td><b>Not reproduced</b></td></tr>
+          <tr><td>LazyDAgger asks more when nothing changes</td><td>44% vs 27% (eps 1–4)</td><td><b>Reproduced</b></td></tr>
+          <tr><td>The printed miss test err = (s &lt; q)</td><td>Never misses and the margin balloons; s &gt; q works</td><td><b>Typo found</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="field" id="arm">
+    <p class="num">2b</p>
+    <h2>On a real arm: UR5e + Robotiq 2F-85</h2>
+    <p class="sub">The same learner, DAgger loop and IQT, now driving a MuJoCo UR5e (models from MuJoCo Menagerie). The learner still outputs the next cup position; IK turns it into joint angles and the arm's servos move it, so the new state is where the cup really got to. The mug is fixed in the gripper (no grasp physics: the paper is about when to ask, not about grasping).</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Shift, episodes 5–9, 5 seeds</th><th>Point cup</th><th>UR5e arm</th></tr></thead>
+        <tbody>
+          <tr><td>Robot asks for help</td><td>12 → 27 → 23 → 25 → 19%</td><td>16 → 33 → 31 → 27 → 35%</td></tr>
+          <tr><td>Back to normal asking</td><td>by episode 11</td><td>by episode 10</td></tr>
+          <tr><td>Steady teacher: robot asks</td><td>about 6%</td><td>about 6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Each clip shows one recorded run (seed 0) from the <a href="studio.html">studio replay page</a>, then the 5-seed numbers. Green gripper = robot acts alone, amber = robot asked, blue = teacher stepped in on their own. The box is the robot's margin; the faint blue mug is what the teacher would do.</p>
+    <div class="clips">
+      <figure><video src="clips/shift.mp4" controls preload="metadata" playsinline></video><figcaption>1 · The teacher changes their mind (episodes 4–8)</figcaption></figure>
+      <figure><video src="clips/drift.mp4" controls preload="metadata" playsinline></video><figcaption>2 · The goal drifts (episodes 4–11)</figcaption></figure>
+      <figure><video src="clips/stationary.mp4" controls preload="metadata" playsinline></video><figcaption>3 · A steady teacher (episodes 1–3)</figcaption></figure>
+      <figure><video src="clips/env.mp4" controls preload="metadata" playsinline></video><figcaption>4 · The start moves (episodes 1–3)</figcaption></figure>
+    </div>
+    <style>.clips{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}.clips video{width:100%;border-radius:8px;background:#000;display:block}.clips figure{margin:0}</style>
+  </section>
+
+  <section class="field" id="ext">
+    <p class="num">3</p>
+    <h2>Reactions extension</h2>
+    <div class="coming"><b>Planned, not run yet.</b> The design is on <a href="reactions.html">Step 5</a>. It will measure the delay to the first question after the shift, wrong-way steps, total questions and miscoverage for versions A–D and three kinds of person.</div>
+  </section>
+
+  <section class="field" id="choices">
+    <p class="num">4</p>
+    <h2>Choices and differences from the paper</h2>
+    <p class="sub">Everything I had to decide because the paper doesn't say, or says it unclearly.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Item</th><th>Paper</th><th>This rebuild</th></tr></thead>
+        <tbody>
+          <tr><td>Start and goal positions</td><td>not given</td><td>start (0, 0, 0.1); g0 (0.3, 0.15, 0.1); g1 (0.3, −0.15, 0.1); drift goals in between</td></tr>
+          <tr><td>Demo noise</td><td>"N(1, 0.5)"</td><td>Gaussian push, standard deviation 0.003 on x, y, z</td></tr>
+          <tr><td>End of a demo</td><td>not stated</td><td>5 extra steps holding the cup at the goal, so the robot learns to stop</td></tr>
+          <tr><td>Input/output scaling</td><td>not stated</td><td>network predicts the change from the current state (×100), inputs ×10; output is still the next state</td></tr>
+          <tr><td>"Reached the goal"</td><td>not stated</td><td>closest approach within 0.03 when the robot drives alone</td></tr>
+          <tr><td>Hidden layer size</td><td>not given</td><td>256</td></tr>
+          <tr><td>Buffer when full</td><td>"capped at 300"</td><td>keep the newest 300</td></tr>
+          <tr><td>Miss test sign</td><td>err = (s &lt; q)</td><td>s &gt; q (tested: the printed sign never misses and the margin grows to 0.24)</td></tr>
+          <tr><td>Baseline thresholds</td><td>0.06 / 0.03 / 0.01 (own units)</td><td>calibrated so each baseline asks 7.1% of steps when nothing changes, like ConformalDAgger (calibration seeds 90–92)</td></tr>
+          <tr><td>EnsembleDAgger's action</td><td>ensemble (assumed)</td><td>main policy acts; two extra networks only measure disagreement</td></tr>
+          <tr><td>Step-size floor</td><td>not stated</td><td>B̂ at least 0.0001, so the gripper's margin (errors about 0) still updates</td></tr>
+          <tr><td>Per-side miss rate</td><td>90% coverage overall</td><td>α = 0.05 per side</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="next"><a href="reactions.html">← 5 Reactions</a><a href="index.html">Overview →</a></div>
+  <footer>ConformalDAgger rebuild · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · Paper: Zhao, Simmons, Admoni, Ramdas, Bajcsy, ICLR 2025.</footer>
+</main>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

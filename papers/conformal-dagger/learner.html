@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 2: Learner and DAgger</title>
+<meta name="description" content="Step 2 of the ConformalDAgger rebuild: the small neural network policy, noisy demonstrations, and the DAgger loop of acting, being corrected, saving and retraining.">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">ConformalDAgger · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="task.html">1 Task</a>
+    <a href="learner.html" aria-current="page">2 Learner</a>
+    <a href="iqt.html">3 IQT &amp; Asking</a>
+    <a href="experiments.html">4 Experiments</a>
+    <a href="reactions.html">5 Reactions</a>
+    <a href="results.html">6 Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Step 2 · policy.py, dagger.py</p>
+    <h1>The learner, and learning from corrections</h1>
+    <p class="lead">The robot's "brain" is a small neural network. It first copies 10 demonstrations, then improves in rounds: act, get corrected now and then, save the corrections, retrain. This loop is DAgger, and every method in the paper uses it. They differ only in <i>when</i> the expert is asked.</p>
+    <ul class="contents">
+      <li><a href="#net"><b>1</b>The neural network</a></li>
+      <li><a href="#demos"><b>2</b>10 noisy demonstrations</a></li>
+      <li><a href="#loop"><b>3</b>The DAgger loop</a></li>
+      <li><a href="#example"><b>4</b>One run, step by step</a></li>
+      <li><a href="#why"><b>5</b>Why the robot needs to ask at all</a></li>
+      <li><a href="#check"><b>6</b>Checks and first results</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="net">
+    <p class="num">1</p>
+    <h2>The neural network (the policy)</h2>
+    <p class="sub">12 numbers in, 4 numbers out. Nothing fancy.</p>
+<pre class="code">input x (12)  →  Linear → ReLU  →  … (hidden layers, 256 units) …  →  Linear  →  action a (4)
+loss = mean squared error between the network's action and the expert's action</pre>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Setting</th><th>Value</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Network</td><td>MLP, 7 layers</td><td>paper appendix (summary; to confirm)</td></tr>
+          <tr><td>Optimiser</td><td>Adam, learning rate 0.001, batch 32</td><td>paper appendix (summary; to confirm)</td></tr>
+          <tr><td>First training</td><td>200 iterations on the demos</td><td>paper appendix (summary; to confirm)</td></tr>
+          <tr><td>Retraining</td><td>100 iterations after each episode</td><td>paper appendix (summary; to confirm)</td></tr>
+          <tr><td>Hidden size</td><td>256</td><td>my choice (not stated)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">"Policy" just means "the rule that picks an action". We write the robot's action as <b>a<sub>r</sub></b> and the expert's as <b>a<sub>h</sub></b> (h for human).</p>
+  </section>
+
+  <section class="field" id="demos">
+    <p class="num">2</p>
+    <h2>10 noisy demonstrations</h2>
+    <p class="sub">The expert drives the cup start → g0 ten times, with small random pushes added.</p>
+    <p>If the demos were perfect straight lines, the robot would only ever see states <i>on</i> the line. The first time it drifts a little off, it would be somewhere it has never seen and wouldn't know how to come back. So, following a trick called <b>DART</b>, noise is added to the moves while recording. The data then also shows "if you are a bit off, here is how the expert gets back".</p>
+<pre class="code">for each demo (10):
+    position = start
+    repeat until at g0 (max 100 steps):
+        a_h = expert(position, g0)            ← this is the label we save
+        save (observation, a_h)
+        position = a_h + small random push    ← where the cup actually goes</pre>
+    <p class="note">The paper writes the noise as N(1, 0.5), which can't literally be a position offset in metres. I use a small Gaussian push with standard deviation 0.003 on x, y and z (my choice, reported on the Results page).</p>
+    <p>10 demos × about 40 steps (including 5 "hold at the goal" steps, see Checks) = <b>398 training pairs</b>; the buffer keeps the newest 300.</p>
+  </section>
+
+  <section class="field" id="loop">
+    <p class="num">3</p>
+    <h2>The DAgger loop</h2>
+    <p class="sub">15 episodes. Each episode: 2 runs on the task, then retrain.</p>
+<pre class="code">train policy on the demos                         (episode 0)
+for episode = 1 … 15:
+    goal = goal for this episode (from Step 1's setting)
+    for run = 1, 2:
+        position = start
+        for t = 1 … 100:
+            x   = last 3 positions
+            a_r = policy(x)                       ← robot's suggestion
+            if expert gives feedback this step:   ← <span class="hl">WHEN? This is what methods differ on</span>
+                a_h = expert(position, goal)
+                save (x, a_h) in the buffer
+                move to a_h                       ← expert's move is used
+            else:
+                move to a_r                       ← robot's own move
+            stop if within 0.01 of goal
+    retrain policy on the buffer (100 iterations)</pre>
+    <div class="three">
+      <div class="card"><h3>Buffer</h3><p>Holds (observation, expert action) pairs. Capped at <b>300</b>; I keep the newest, so old wishes fade out after a shift (my assumption; the paper only says it is capped).</p></div>
+      <div class="card o"><h3>Who decides "feedback this step"?</h3><p>Two ways: the <b>human steps in</b> on their own (20% chance each step in the paper), or the <b>robot asks</b>. Step 3 is all about the robot's rule.</p></div>
+      <div class="card b"><h3>Plain DAgger</h3><p>Would ask the expert at <i>every</i> step. Perfect learning, but exhausting for a person. The paper's goal: learn almost as well while asking far less.</p></div>
+    </div>
+  </section>
+
+  <section class="field" id="example">
+    <p class="num">4</p>
+    <h2>One run, step by step (made-up numbers)</h2>
+    <p class="sub">Episode 5 of the shift setting: the expert now wants g1 (right), but the robot learned g0 (left).</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>t</th><th>Cup at (x, y)</th><th>Robot suggests a<sub>r</sub></th><th>Feedback?</th><th>Expert a<sub>h</sub></th><th>Saved in buffer</th><th>Cup moves to</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>(0.000, 0.000)</td><td>(0.008, 0.004)</td><td>no</td><td>—</td><td>—</td><td>(0.008, 0.004)</td></tr>
+          <tr><td>2</td><td>(0.008, 0.004)</td><td>(0.017, 0.009)</td><td>human steps in</td><td>(0.017, −0.001)</td><td>✓</td><td>(0.017, −0.001)</td></tr>
+          <tr><td>3</td><td>(0.017, −0.001)</td><td>(0.026, 0.003)</td><td>no</td><td>—</td><td>—</td><td>(0.026, 0.003)</td></tr>
+          <tr><td>4</td><td>(0.026, 0.003)</td><td>(0.035, 0.008)</td><td>robot asks</td><td>(0.035, −0.002)</td><td>✓</td><td>(0.035, −0.002)</td></tr>
+          <tr><td>…</td><td colspan="6">the robot keeps drifting left; each correction pulls it right and is saved</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Notice the y values: the robot heads up-left (positive y, toward g0); the expert heads down-right (toward g1). The gap between a<sub>r</sub> and a<sub>h</sub> (about 0.01 in y here) is exactly what Step 3 measures. After this episode, the policy is retrained on a buffer that now contains rightward corrections, so in episode 6 it starts to head right by itself.</p>
+  </section>
+
+  <section class="field" id="why">
+    <p class="num">5</p>
+    <h2>Why the robot needs to ask at all</h2>
+    <p class="sub">With only random human feedback, learning a new goal is slow.</p>
+    <p>If the human steps in only 20% of the time at random, the robot gets about 7 corrections per run. Worse, at the other 80% of steps it keeps moving the wrong way, and the human has to watch it go wrong. A robot that <b>notices</b> it is probably wrong and asks right then gets the corrections where they matter most: just after the expert changed their mind.</p>
+    <div class="key"><p>So the whole question is: <b>how does the robot know it is probably wrong?</b> A neural network gives one answer with no sense of doubt. Step 3 adds a calibrated margin around that answer.</p></div>
+  </section>
+
+  <section class="field" id="check">
+    <p class="num">6</p>
+    <h2>Checks: done (17 Nov 2026)</h2>
+    <p class="sub"><code>policy.py</code> and <code>dagger.py</code> are written; <code>check_step2.py</code> ran 30 full runs (2 settings × 3 rules × 5 seeds) in about 3 minutes. All 4 checks pass.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Check</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Demos only: the robot, driving alone, reaches g0 (within 0.03)</td><td><span class="ok">✓</span> 4 of 5 seeds; average closest distance 0.018</td></tr>
+          <tr><td>Best case (feedback every step): learns g1 by episode 8</td><td><span class="ok">✓</span> 5 of 5 seeds</td></tr>
+          <tr><td>Worst case (no feedback): still not at g1 at episode 15</td><td><span class="ok">✓</span> 0 of 5 reach g1; it keeps going to g0 (0.27 from g1)</td></tr>
+          <tr><td>Buffer never exceeds 300</td><td><span class="ok">✓</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <img src="img/step2_references.png" alt="Three charts. Stationary: all rules stay near g0. Shift: after episode 5, feedback every step returns to the goal by episode 8; random 20% feedback returns unevenly; no feedback stays 0.27 away. Feedback share: 100%, about 20%, and 0%." style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">
+      <figcaption>Made by <code>plot_step2.py</code> from <code>results/step2.json</code>. "Closest to the current goal" = the robot drives alone after retraining; how near it gets to where the expert now wants the cup.</figcaption>
+    </figure>
+    <h3>What this shows</h3>
+    <ul>
+      <li><b>Feedback every step</b> recovers reliably, but only by episode 8, not 6. The buffer holds 300 pairs and each episode adds about 66 new ones, so it takes about 4 episodes to push out the old g0 examples that start from the same place but point the other way.</li>
+      <li><b>Random 20% feedback</b> gets only about 13 corrections per episode. It sometimes recovers early but swings back (episodes 8 and 10) and is steady only near the end. This is the gap a good asking rule should close.</li>
+      <li><b>No feedback</b> never learns the new goal, as expected.</li>
+    </ul>
+    <h3>Two fixes I had to make (reported, not hidden)</h3>
+    <ul>
+      <li><b>The robot drove past the goal.</b> The demos stopped as soon as the cup was within 0.01 of g0, so the network never saw "stop here"; robots that passed just outside that 0.01 ball kept going. Fix: each demo records 5 more steps of the expert holding the cup at the goal (<code>HOLD_STEPS = 5</code>).</li>
+      <li><b>"Reached" is measured as the closest the cup gets to the goal (within 0.03)</b>, not the final distance, because the learned robot hovers about 0.01–0.02 from the goal rather than landing inside the strict 0.01 ball.</li>
+    </ul>
+    <style>.ok{color:var(--green);font-weight:700}</style>
+  </section>
+
+  <div class="next"><a href="task.html">← 1 Task</a><a href="iqt.html">3 IQT &amp; Asking →</a></div>
+  <footer>ConformalDAgger rebuild · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · Paper: Zhao, Simmons, Admoni, Ramdas, Bajcsy, ICLR 2025.</footer>
+</main>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 3: IQT and Asking</title>
+<meta name="description" content="Step 3 of the ConformalDAgger rebuild: the error margin around each action, Intermittent Quantile Tracking (IQT), and the rule for when the robot asks, with worked examples and live demos.">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">ConformalDAgger · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="task.html">1 Task</a>
+    <a href="learner.html">2 Learner</a>
+    <a href="iqt.html" aria-current="page">3 IQT &amp; Asking</a>
+    <a href="experiments.html">4 Experiments</a>
+    <a href="reactions.html">5 Reactions</a>
+    <a href="results.html">6 Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Step 3 · iqt.py, conformal_dagger.py</p>
+    <h1>The margin, how it learns, and when to ask</h1>
+    <p class="lead">This is the paper's contribution. The robot puts a margin around each action it predicts. Every time the expert's real action is seen, the margin is nudged: wider after a miss, a little narrower after a hit. The trick is doing this correctly when the expert's action is seen only now and then. When the margin is wide, the robot asks.</p>
+    <ul class="contents">
+      <li><a href="#margin"><b>1</b>The margin</a></li>
+      <li><a href="#qt"><b>2</b>Nudging the margin (every step)</a></li>
+      <li><a href="#iqt"><b>3</b>IQT: when answers come only sometimes</a></li>
+      <li><a href="#step"><b>4</b>How big each nudge is</a></li>
+      <li><a href="#demo"><b>5</b>Live demo: IQT vs a naive version</a></li>
+      <li><a href="#ask"><b>6</b>When the robot asks</a></li>
+      <li><a href="#algo"><b>7</b>ConformalDAgger, all together</a></li>
+      <li><a href="#typos"><b>8</b>Things to check in the paper</a></li>
+      <li><a href="#results3"><b>9</b>First results</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="margin">
+    <p class="num">1</p>
+    <h2>The margin</h2>
+    <p class="sub">An interval around the robot's predicted action, with its own lower and upper distance.</p>
+<pre class="eq">margin C_t = [ a_r − q_lo ,  a_r + q_hi ]          (for each of the 4 action numbers)</pre>
+    <p>The two distances q<sub>lo</sub> and q<sub>hi</sub> are learned separately, because errors are often one-sided. After a shift to the right goal, the expert's y is always <i>below</i> the robot's y, so only the lower side needs to grow.</p>
+    <h3>Worked example (the y number only)</h3>
+<pre class="calc">robot predicts       a_r = 0.035
+current distances    q_lo = 0.004,  q_hi = 0.004
+margin               [0.031, 0.039]
+
+expert's real action a_h = 0.025      → outside, below the margin: a miss on the lower side</pre>
+    <p>To judge hits and misses, the paper uses two <b>scores</b> (signed errors):</p>
+<pre class="eq">s_hi = a_h − a_r      (how far the expert is above the robot)     miss on top    if s_hi > q_hi
+s_lo = a_r − a_h      (how far the expert is below the robot)     miss on bottom if s_lo > q_lo</pre>
+    <p>In the example: s<sub>lo</sub> = 0.035 − 0.025 = 0.010 &gt; 0.004 → a miss below. s<sub>hi</sub> = −0.010 &lt; 0.004 → no miss above.</p>
+  </section>
+
+  <section class="field" id="qt">
+    <p class="num">2</p>
+    <h2>Nudging the margin when every answer is seen</h2>
+    <p class="sub">Quantile tracking: a simple rule that ends up wrong exactly 10% of the time.</p>
+<pre class="eq">q  ←  q + γ · (err − α)          err = 1 if a miss, 0 if a hit;   α = allowed miss rate</pre>
+    <div class="two">
+      <div class="panel"><h3>After a miss (err = 1)</h3><p>q grows by γ·(1 − α). With α = 0.05 that is 0.95 γ: a big step up.</p></div>
+      <div class="panel"><h3>After a hit (err = 0)</h3><p>q shrinks by γ·α = 0.05 γ: a small step down.</p></div>
+    </div>
+    <div class="key"><p><b>Why this lands on the right miss rate:</b> the margin stops moving on average only when the big steps up balance the small steps down. That happens when misses make up exactly α of the answers: 0.05 × 0.95 = 0.95 × 0.05. If the world changes and misses become common, the margin grows until they are rare again. No model of the error is needed, and this holds for any sequence of data (that is the conformal guarantee).</p></div>
+    <p>The paper aims for 90% coverage overall. With two sides, I give each side α = 0.05.</p>
+  </section>
+
+  <section class="field" id="iqt">
+    <p class="num">3</p>
+    <h2>IQT: when answers come only sometimes</h2>
+    <p class="sub">Update only when the expert's action is seen, and divide the step by the chance that it was seen.</p>
+<pre class="eq">if feedback seen (obs = 1):   q  ←  q + (γ / p) · (err − α)
+if not seen      (obs = 0):   q  ←  q                         (err is unknown, so do nothing)
+
+p = probability that feedback would be seen at this step (known to the robot)</pre>
+    <h3>Why divide by p?</h3>
+    <p>Feedback is not random. The robot <b>asks more when its margin is wide</b>, and a wide margin is less likely to miss. So the answers it sees are biased toward hits. If we just updated on them as usual, the margin would shrink too much and miss more than 10% of the time overall.</p>
+    <p>Dividing by p fixes this, the same way a survey reweights groups it under-samples. An answer that had only a 20% chance of being seen stands in for about 5 unseen steps, so it moves the margin 5 times as much. An answer that was almost certain to be seen (the robot asked) counts about once. On average over many steps, the update then matches the "every answer seen" rule, so the 10% guarantee survives (the paper's Proposition 1).</p>
+    <h3>Worked example</h3>
+    <p>Lower side, q<sub>lo</sub> = 0.004, step size γ = 0.006, α = 0.05.</p>
+<pre class="calc">A. Human stepped in by chance (p = 0.2) and it was a MISS:
+   q_lo ← 0.004 + (0.006 / 0.2) · (1 − 0.05) = 0.004 + 0.0285 = <span class="up">0.0325</span>
+
+B. Robot asked because it was unsure (p = 0.9) and it was a MISS:
+   q_lo ← 0.004 + (0.006 / 0.9) · (1 − 0.05) = 0.004 + 0.0063 = <span class="up">0.0103</span>
+
+C. Human stepped in by chance (p = 0.2) and it was a HIT:
+   q_lo ← 0.004 + (0.006 / 0.2) · (0 − 0.05) = 0.004 − 0.0015 = <span class="dn">0.0025</span>
+
+D. No feedback at this step:
+   q_lo ← <span class="eq0">0.004</span>   (unchanged)</pre>
+    <p>Case A is the important one: a surprise miss, seen only by luck, is strong evidence that many unseen steps were also misses, so the margin jumps.</p>
+  </section>
+
+  <section class="field" id="step">
+    <p class="num">4</p>
+    <h2>How big each nudge is</h2>
+    <p class="sub">The step size follows the size of recent errors.</p>
+<pre class="eq">γ_t = lr · B̂_t          B̂_t = largest score among the last k seen answers
+paper (simulation):  lr = 0.6,  k = 100,   starting margin q_0 = 0.01</pre>
+    <p>If recent errors are around 0.01, steps are around 0.006; if errors become ten times bigger after a shift, steps grow too, so the margin can catch up quickly. The paper reports this worked better than a fixed γ.</p>
+    <p>The paper names two versions. <b>IQT-pd</b> uses γ = lr·B̂ and divides by p as above. <b>IQT-pi</b> uses γ = lr·B̂·p, so the p cancels and every seen answer moves the margin equally. I will implement both and use IQT-pd as the main one.</p>
+  </section>
+
+  <section class="field" id="demo">
+    <p class="num">5</p>
+    <h2>Live demo: IQT vs a naive version</h2>
+    <p class="sub">One action number over 600 steps. The expert changes its mind at step 300, and the robot slowly catches up.</p>
+    <div class="play demo">
+      <div class="ctrl">
+        <label for="dC">Human steps in (c) <input type="range" id="dC" min="0.05" max="1" step="0.05" value="0.2"></label><output id="dCo">0.20</output>
+        <label for="dLr">Step size lr <input type="range" id="dLr" min="0.05" max="1" step="0.05" value="0.6"></label><output id="dLro">0.60</output>
+        <label><input type="checkbox" id="dAsk" checked> Robot asks when the margin is wide</label>
+        <label><input type="checkbox" id="dShift" checked> Expert changes at step 300</label>
+        <button type="button" id="dNew">New random run</button>
+        <button type="button" id="dAvg" class="primary">Average 200 runs</button>
+      </div>
+      <div class="world"><svg id="iqtSvg" viewBox="0 0 900 330" role="img" aria-label="Chart of the robot's error over 600 steps with the IQT margin and the naive margin."></svg></div>
+      <div class="chart legend" style="border:0;padding:4px 0;margin:0;background:none">
+        <span><i style="background:var(--accent)"></i>IQT margin (divides by p)</span>
+        <span><i style="background:var(--orange)"></i>Naive margin (ignores p)</span>
+        <span><i style="background:var(--ink)"></i>expert's action seen (filled) / not seen (faint)</span>
+      </div>
+      <div class="stats" id="iqtStats"></div>
+      <p id="iqtAvg" class="msg"></p>
+    </div>
+    <p>The dots are the error a<sub>h</sub> − a<sub>r</sub> at each step. Before step 300 the robot is nearly right; after it, the expert wants something else and the error jumps, then fades as retraining catches up. Both margins see exactly the same answers when the robot does not ask; with asking on, each margin decides for itself when to ask.</p>
+    <p class="note">Things to try (single runs vary a lot, so press <b>Average 200 runs</b>): (1) With the default settings, the naive margin trusts the answers it asked for, shrinks too far, asks less, and ends up outside more often than IQT (about 11% vs 9% over 200 runs). (2) Turn asking off: feedback is then purely random and both versions end up close. (3) Lower lr to 0.1: smaller steps, both margins become steadier but slower to react to the change. This is a toy stream for one action number, not the real robot; the real numbers come in Step 4.</p>
+  </section>
+
+  <section class="field" id="ask">
+    <p class="num">6</p>
+    <h2>When the robot asks</h2>
+    <p class="sub">The wider the margin, the more likely it asks; above τ it almost always does.</p>
+<pre class="eq">u          = size of the margin   (length of the vector of the 4 widths q_lo + q_hi)
+P(ask)     = sigmoid( β · (u − τ) )          paper: τ = 0.06, β = 100
+P(feedback) = p = c + P(ask) − c · P(ask)     (either the human steps in, or the robot asks, or both)</pre>
+    <h3>Worked example</h3>
+<pre class="calc">widths of the 4 numbers: x 0.020, y 0.050, z 0.008, gripper 0.004
+u = √(0.020² + 0.050² + 0.008² + 0.004²) = 0.0546
+P(ask) = sigmoid(100 · (0.0546 − 0.06)) = sigmoid(−0.54) = 0.37
+p = 0.2 + 0.37 − 0.2 · 0.37 = 0.496      ← this p goes into the IQT update</pre>
+    <div class="play demo">
+      <div class="ctrl">
+        <label for="sT">τ <input type="range" id="sT" min="0.02" max="0.12" step="0.005" value="0.06"></label><output id="sTo">0.060</output>
+        <label for="sB">β <input type="range" id="sB" min="20" max="300" step="10" value="100"></label><output id="sBo">100</output>
+        <label for="sU">margin size u <input type="range" id="sU" min="0" max="0.15" step="0.002" value="0.054"></label><output id="sUo">0.054</output>
+      </div>
+      <div class="world"><svg id="sigSvg" viewBox="0 0 900 260" role="img" aria-label="S-shaped curve of the chance of asking against margin size."></svg></div>
+      <p id="sigMsg" class="msg"></p>
+    </div>
+    <p>A soft rule (β = 100) is used in simulation; on the real robot the paper used a hard threshold (ask if u &gt; 0.07). The paper's sensitivity test: with τ = 0.03 both methods ask 70–80% of the time even at the start; with τ = 0.18 or more, ConformalDAgger stops asking.</p>
+  </section>
+
+  <section class="field" id="algo">
+    <p class="num">7</p>
+    <h2>ConformalDAgger, all together</h2>
+    <p class="sub">Step 2's loop, with the "WHEN?" filled in.</p>
+<pre class="code">for each episode:
+    q_lo = q_hi = 0.01                                  ← reset each episode (Algorithm 1)
+    for each step:
+        a_r  = policy(x)
+        u    = size of [a_r − q_lo, a_r + q_hi]
+        ask  = random() &lt; sigmoid(β · (u − τ))
+        human = random() &lt; c
+        p    = c + P(ask) − c · P(ask)
+        if ask or human:
+            a_h = expert(x)
+            for each side: err = (score &gt; q);  q ← q + (γ / p) · (err − α)
+            save (x, a_h);  move to a_h
+        else:
+            move to a_r                                  ← q unchanged
+    retrain policy on the buffer</pre>
+  </section>
+
+  <section class="field" id="typos">
+    <p class="num">8</p>
+    <h2>Things to check in the paper while coding</h2>
+    <p class="sub">Small inconsistencies I noticed while reading. Each will be tested, not guessed.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Point</th><th>What the paper writes</th><th>What I will do</th></tr></thead>
+        <tbody>
+          <tr><td>Miss test</td><td>err = (s &lt; q)</td><td><b>Tested.</b> As printed, the margin grows to a size of 0.24 and never misses (0%). With err = (s &gt; q) it behaves as intended (misses 2%, size 0.036). So the printed version is a typo; I use s &gt; q.</td></tr>
+          <tr><td>Margin size u</td><td>"L2 norm of the interval"; also written with x<sub>t+1</sub> in one place</td><td>Length of the width vector at the current step.</td></tr>
+          <tr><td>Reset of q</td><td>Algorithm 1 resets q to 0.01 every episode</td><td><b>Tested.</b> Followed. With the reset, misses per number are 2%; without it, 5% (target 10%). See section 9.</td></tr>
+          <tr><td>Noise in demos</td><td>N(1, 0.5)</td><td>Gaussian push, sd 0.003 (Step 2).</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="field" id="results3">
+    <p class="num">9</p>
+    <h2>First results (17 Nov 2026)</h2>
+    <p class="sub"><code>iqt.py</code>, <code>conformal_dagger.py</code> and <code>check_step3.py</code>: 4 settings × 5 seeds in 3 minutes. All checks pass.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Check</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>The worked examples A–D in section 3</td><td><span class="ok">✓</span> 0.0325, 0.0103, 0.0025, 0.004, exactly as above</td></tr>
+          <tr><td>Miss-sign test (stationary, robot not asking)</td><td><span class="ok">✓</span> s &gt; q is right; the printed s &lt; q never misses and the margin balloons</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <img src="img/step3_conformal.png" alt="Six charts for the shift and drift settings: feedback share, share of seen steps outside the margin, and how close the robot alone gets to the current goal, compared with Step 2's random 20% and every-step feedback." style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">
+      <figcaption>Made by <code>plot_step3.py</code> from <code>results/step3.json</code> (and Step 2's references in the top-right chart).</figcaption>
+    </figure>
+    <h3>What it shows</h3>
+    <ul>
+      <li><b>It notices the shift and asks more.</b> Before the change the robot itself asks on about 6–9% of steps (all feedback about 28%, mostly the random human). After the change, its own questions rise to <b>27%</b> in episode 6 (all feedback <b>46%</b>), stay high while it relearns, and drop back to about 6% by episode 11.</li>
+      <li><b>It relearns faster and more steadily than random feedback.</b> Robot alone, closest to the new goal: 0.058 m in episode 5, 0.031 in 6, 0.012 in 7, then steady. Random 20% feedback: 0.159, 0.044, then swings back to 0.06 in episodes 8 and 10.</li>
+      <li><b>It even beats feedback at every step</b> here (0.217 and 0.165 in episodes 5–6). Reason: when the expert acts at every step, the robot never drives itself, so it only ever sees the expert's perfect path, where old and new examples start from the same states and contradict each other. Mixed control lets it visit its own states, which is the point of DAgger.</li>
+      <li><b>Drift:</b> the robot asks more after each change (episodes 5, 8, 11), and its misses hover near 10%, as the paper describes.</li>
+    </ul>
+    <h3>Compared with the paper</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>Paper (shift)</th><th>This rebuild</th></tr></thead>
+        <tbody>
+          <tr><td>Feedback before the change</td><td>about 20%</td><td>about 28% (human 20% + robot 6–9%)</td></tr>
+          <tr><td>Feedback at the change</td><td>about 60% (episode 5)</td><td>34% in episode 5, peak 46% in episode 6</td></tr>
+          <tr><td>Misses at the change</td><td>peak about 0.4, settling at 0.2</td><td>peak 0.13, settling to near 0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px"><b>Same pattern, smaller and one episode later.</b> My margins are <b>wider</b> (more cautious) than the paper's: misses are only 2% per number when nothing changes, against a 10% target. The side check shows why: the margin restarts at 0.01 every episode (Algorithm 1), which is wider than the robot's usual error (about 0.002), and it shrinks only a little at each seen step (by 0.05 × γ / p). With about 25 seen steps per episode it never shrinks fully. Without the reset, misses rise to 5%. Wider margins hide a small shift at first, so the jump in asking is smaller and comes in episode 6. In Step 4 I will test a smaller starting margin and see whether the numbers move toward the paper's.</p>
+    <style>.ok{color:var(--green);font-weight:700}</style>
+  </section>
+
+  <div class="next"><a href="learner.html">← 2 Learner</a><a href="experiments.html">4 Experiments →</a></div>
+  <footer>ConformalDAgger rebuild · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · Paper: Zhao, Simmons, Admoni, Ramdas, Bajcsy, ICLR 2025.</footer>
+</main>
+<script src="site.js?v=1"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

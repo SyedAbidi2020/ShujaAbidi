@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 4: Experiments</title>
+<meta name="description" content="Step 4 of the ConformalDAgger rebuild: the baseline methods, the experiment grid, the four measurements with examples, and the paper's results to match.">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">ConformalDAgger · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="task.html">1 Task</a>
+    <a href="learner.html">2 Learner</a>
+    <a href="iqt.html">3 IQT &amp; Asking</a>
+    <a href="experiments.html" aria-current="page">4 Experiments</a>
+    <a href="reactions.html">5 Reactions</a>
+    <a href="results.html">6 Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Step 4 · baselines.py, run_experiments.py</p>
+    <h1>Comparing against other ways of asking</h1>
+    <p class="lead">A method is only good compared with something. The paper compares ConformalDAgger with three earlier methods that also decide when to ask. All four share the same task, network and DAgger loop; only the asking rule changes.</p>
+    <ul class="contents">
+      <li><a href="#baselines"><b>1</b>The methods compared</a></li>
+      <li><a href="#grid"><b>2</b>The experiment grid</a></li>
+      <li><a href="#metrics"><b>3</b>What is measured</a></li>
+      <li><a href="#paper"><b>4</b>The paper's results to match</a></li>
+      <li><a href="#plots"><b>5</b>The plots I will make</a></li>
+      <li><a href="#results4"><b>6</b>Results</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="baselines">
+    <p class="num">1</p>
+    <h2>The methods compared</h2>
+    <p class="sub">Each answers "how do I know I'm probably wrong?" differently.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Method</th><th>How it decides to ask</th><th>Settings (paper)</th><th>Weak point</th></tr></thead>
+        <tbody>
+          <tr><td><b>ConformalDAgger</b></td><td>Its calibrated margin (Step 3) is wide.</td><td>τ = 0.06, β = 100, lr = 0.6, k = 100, q₀ = 0.01</td><td>Needs feedback to grow the margin; reacts only after some misses.</td></tr>
+          <tr><td><b>EnsembleDAgger</b></td><td>Trains 3 networks; asks when they disagree (variance &gt; 0.06), or when a safety classifier says the robot is far from the expert (&gt; 0.03).</td><td>3 members</td><td>After a shift all 3 networks still agree on the <i>old</i> goal, so they look confident while wrong.</td></tr>
+          <tr><td><b>LazyDAgger</b></td><td>A learned classifier predicts how far the robot is from the expert; asks when above s = 0.03, and keeps asking until below 0.1 × s.</td><td>s = 0.03</td><td>The classifier was trained on old data; it can't know the expert changed.</td></tr>
+          <tr><td><b>SafeDAgger</b></td><td>Like LazyDAgger without the "keep asking" part.</td><td>s = 0.01</td><td>Same as LazyDAgger.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="key"><p><b>The key difference:</b> the ensemble and classifiers measure <i>disagreement inside the robot</i>. After an expert shift the robot is consistently, confidently wrong, so disagreement stays low. ConformalDAgger measures <i>how often reality falls outside its margin</i>, so a shift shows up as misses, even if the robot is confident.</p></div>
+    <h3>A quick example after the shift</h3>
+<pre class="calc">expert's y:   −0.002     robot's y:  +0.008      true error: 0.010
+
+EnsembleDAgger:   3 nets predict  +0.0079, +0.0081, +0.0080   → variance tiny → no question
+ConformalDAgger:  margin [0.004, 0.012]; expert at −0.002 is outside → <span class="up">miss</span>
+                  → q_lo jumps (Step 3, case A) → margin wide → asks at the next steps</pre>
+    <p>I will start with EnsembleDAgger and LazyDAgger (the paper's main comparisons) and add SafeDAgger if time allows.</p>
+  </section>
+
+  <section class="field" id="grid">
+    <p class="num">2</p>
+    <h2>The experiment grid</h2>
+    <p class="sub">4 settings × 3–4 methods × 5 seeds = up to 80 runs, each a few minutes on the laptop.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Item</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Settings</td><td>stationary, shift (ep 5), drift (eps 5, 8, 11), environment shift (Step 1)</td></tr>
+          <tr><td>Episodes</td><td>15, each with 2 runs of at most 100 steps</td></tr>
+          <tr><td>Human steps in by chance</td><td>c = 0.2 at every step</td></tr>
+          <tr><td>Buffer</td><td>at most 300 pairs; retrain after each episode</td></tr>
+          <tr><td>Seeds</td><td>5 (different demos, network weights and random feedback)</td></tr>
+          <tr><td>Coverage target</td><td>90% (α = 0.05 per side)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">The same seed gives every method the same demos and the same initial network, so differences come from the asking rule alone.</p>
+  </section>
+
+  <section class="field" id="metrics">
+    <p class="num">3</p>
+    <h2>What is measured</h2>
+    <p class="sub">Four numbers per episode, averaged over the 5 seeds.</p>
+    <div class="two">
+      <div class="card"><h3>Miscoverage rate</h3><p>Of the steps where the expert's action was seen, how often it fell outside the margin. Target 0.1. For EnsembleDAgger, the margin is mean ± 3 × spread of the 3 networks.</p><p><b>Example:</b> 40 seen steps, 6 outside → 0.15.</p></div>
+      <div class="card o"><h3>Intervention rate</h3><p>Share of steps where the expert acted (asked + stepped in by chance). Lower is easier for the person, but too low after a shift means the robot didn't notice.</p><p><b>Example:</b> 120 of 200 steps → 60%.</p></div>
+      <div class="card b"><h3>Decision deviation</h3><p>At the states the robot actually visited, the average distance between its action and what the expert would have done. Measures how well it has learned the current wish.</p><p><b>Example:</b> mean |a<sub>r</sub> − a<sub>h</sub>| = 0.006.</p></div>
+      <div class="card g"><h3>Trajectory deviation</h3><p>Let the robot run alone from the start, let the expert run alone, and compare the two paths point by point. Measures the end result.</p><p><b>Example:</b> mean gap along the path = 0.04.</p></div>
+    </div>
+  </section>
+
+  <section class="field" id="paper">
+    <p class="num">4</p>
+    <h2>The paper's results to match</h2>
+    <p class="sub">Read from the paper's Figure 5 (approximate; 5 seeds).</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Setting</th><th>What the paper reports</th></tr></thead>
+        <tbody>
+          <tr><td>Shift</td><td>Before the shift both methods ask about 20%. At episode 5, ConformalDAgger jumps to about <b>60%</b>; EnsembleDAgger stays near <b>30%</b>.</td></tr>
+          <tr><td>Shift, miscoverage</td><td>ConformalDAgger peaks at about <b>0.4</b> and returns to about <b>0.2</b>; EnsembleDAgger peaks at <b>1.0</b> and settles near <b>0.4</b>.</td></tr>
+          <tr><td>Drift</td><td>ConformalDAgger asks more at each small change (e.g. episode 8); EnsembleDAgger's miscoverage stays higher.</td></tr>
+          <tr><td>Stationary, environment shift</td><td>All methods similar; LazyDAgger asks slightly more when nothing changes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:12px">What counts as a successful rebuild: the same <b>pattern</b> (ConformalDAgger asks clearly more right after a shift, and its miscoverage recovers faster), not identical numbers. My goal positions and demo noise differ from theirs, so exact values will differ. Every difference will be reported.</p>
+  </section>
+
+  <section class="field" id="plots">
+    <p class="num">5</p>
+    <h2>The plots I will make</h2>
+    <p class="sub">The same layout as the paper's Figure 5, so they can be compared side by side.</p>
+    <ol class="steps">
+      <li>Intervention rate per episode, one line per method, shaded band = standard error over 5 seeds, with a mark at the shift episode(s).</li>
+      <li>Miscoverage per episode, same layout, with a dashed line at the 0.1 target.</li>
+      <li>Decision deviation and trajectory deviation per episode.</li>
+      <li>Top-view paths of the robot before and after the shift (as in Step 1), for one seed.</li>
+    </ol>
+  </section>
+
+  <section class="field" id="results4">
+    <p class="num">6</p>
+    <h2>Results (17 Nov 2026)</h2>
+    <p class="sub"><code>baselines.py</code>, <code>calibrate.py</code>, <code>run_experiments.py</code>: 4 settings × 5 methods × 5 seeds = 100 runs in 16 minutes.</p>
+    <p><b>Fair thresholds.</b> The paper's thresholds are in its own units, so I set each baseline to ask on the same share of steps as ConformalDAgger when nothing changes (7.1% in episodes 1–4), using separate calibration seeds (90–92). Thresholds: LazyDAgger and SafeDAgger s = 0.0017; EnsembleDAgger spread 0.0022 or risk 0.0017.</p>
+    <figure>
+      <img src="img/step4_grid.png" alt="Grid of 16 charts: rows are the four settings, columns are feedback share, share of seen steps outside the margin, decision deviation and trajectory deviation, one line per method." style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">
+      <figcaption>Made by <code>plot_step4.py</code> from <code>results/step4.json</code>, laid out like the paper's Figure 5.</figcaption>
+    </figure>
+    <h3>Shift (goal changes at episode 5)</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Method</th><th>Feedback, eps 1–4</th><th>Ep 5 → 6</th><th>Peak (episode)</th><th>Robot alone, distance to new goal: eps 5 / 6 / 7</th><th>Expert outside margin: before / peak / end</th></tr></thead>
+        <tbody>
+          <tr><td><b>ConformalDAgger</b></td><td>27%</td><td>34% → 46%</td><td>46% (6)</td><td><b>0.058 / 0.031 / 0.012</b></td><td>0.06 / 0.13 / 0.01</td></tr>
+          <tr><td>ConformalDAgger, q0 = 0.002</td><td>22%</td><td>32% → 37%</td><td>45% (9)</td><td>0.107 / 0.107 / 0.017</td><td>0.17 / 0.20 / 0.12</td></tr>
+          <tr><td>EnsembleDAgger</td><td>28%</td><td>38% → 53%</td><td>60% (8)</td><td>0.090 / 0.070 / 0.017</td><td><b>0.80 / 1.00 / 0.76</b></td></tr>
+          <tr><td>LazyDAgger</td><td>44%</td><td>20% → 47%</td><td>83% (8)</td><td>0.146 / 0.055 / 0.013</td><td>no margin</td></tr>
+          <tr><td>SafeDAgger</td><td>24%</td><td>25% → 45%</td><td>48% (8)</td><td>0.157 / 0.069 / 0.070</td><td>no margin</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>What matches the paper</h3>
+    <ul>
+      <li><b>ConformalDAgger relearns the new goal fastest</b> after the shift (closest to the new goal in episodes 5 and 6, on target by 7). SafeDAgger is still off target at episode 8 and later.</li>
+      <li><b>The ensemble's uncertainty is badly calibrated.</b> Its ±3-spread margin misses the expert's action 80% of the time even before the change and 100% at the change, as the paper reports (peak 1.0). ConformalDAgger stays near its target: 6% before, 13% at the peak.</li>
+      <li><b>LazyDAgger asks more when nothing changes</b> (44% in eps 1–4 vs 27%), because it keeps the expert in control after each alarm. The paper also notes this.</li>
+      <li><b>Environment shift:</b> the start moves but the goal doesn't, so more asking isn't needed. ConformalDAgger stays at about 30%, while the baselines' risk models fire at the unfamiliar start (Lazy 67%, Safe 49%, Ensemble 47% in eps 1–4).</li>
+    </ul>
+    <h3>What does not match (reported honestly)</h3>
+    <ul>
+      <li><b>Asking at the moment of change.</b> The paper: ConformalDAgger about 60% vs EnsembleDAgger about 30% at episode 5. Here the ensemble asks slightly <i>more</i> at episode 5 (38% vs 34%) and peaks higher later (60% at episode 8). Most of the ensemble's extra questions come in episodes 6–8, after it has already been moving the wrong way; its alarms come from the risk model retrained on the new data, not from noticing the change. ConformalDAgger's questions come earlier and stop sooner.</li>
+      <li><b>The smaller starting margin did not help.</b> With q0 = 0.002 the margin is too narrow (17% misses even when nothing changes) and relearning is slower. So the per-episode reset to 0.01 does not explain the gap to the paper's numbers. The remaining differences are likely in details the paper does not give (goal positions, demo noise, network size, how the ensemble's risk model is trained).</li>
+    </ul>
+    <div class="key"><p><b>Bottom line for the reproduction:</b> the core claims hold: calibrated margins (ConformalDAgger near its target, the ensemble missing 80–100%), and faster recovery after an expert shift. The specific "asks twice as often as EnsembleDAgger at the shift" result is not reproduced in my setup.</p></div>
+  </section>
+
+  <div class="next"><a href="iqt.html">← 3 IQT &amp; Asking</a><a href="reactions.html">5 Reactions →</a></div>
+  <footer>ConformalDAgger rebuild · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · Paper: Zhao, Simmons, Admoni, Ramdas, Bajcsy, ICLR 2025.</footer>
+</main>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

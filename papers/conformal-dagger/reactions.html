@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 5: Reactions as Feedback</title>
+<meta name="description" content="Step 5, my extension to ConformalDAgger: people react before they correct a robot. Simulated per-person reactions trigger earlier questions while keeping IQT's coverage guarantee.">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">ConformalDAgger · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="task.html">1 Task</a>
+    <a href="learner.html">2 Learner</a>
+    <a href="iqt.html">3 IQT &amp; Asking</a>
+    <a href="experiments.html">4 Experiments</a>
+    <a href="reactions.html" aria-current="page">5 Reactions</a>
+    <a href="results.html">6 Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Step 5 · reaction_human.py · my extension</p>
+    <h1>People react before they correct</h1>
+    <p class="lead">In the paper, the person steps in at random, 20% of the time. Real people don't. When a robot starts doing the wrong thing, they frown, lean in, say "hm?", and only then grab control. My PhD work detects exactly these reactions (HEV and PDV). This step asks: can the robot use them to ask earlier and less often, without losing the coverage guarantee?</p>
+    <ul class="contents">
+      <li><a href="#gap"><b>1</b>The gap in the paper</a></li>
+      <li><a href="#person"><b>2</b>A simulated person who reacts</a></li>
+      <li><a href="#demo"><b>3</b>Demo: reaction vs stepping in</a></li>
+      <li><a href="#use"><b>4</b>How the robot uses reactions</a></li>
+      <li><a href="#guarantee"><b>5</b>Why the guarantee still holds</a></li>
+      <li><a href="#compare"><b>6</b>What I will compare</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="gap">
+    <p class="num">1</p>
+    <h2>The gap in the paper</h2>
+    <p class="sub">The robot has to make mistakes before its margin grows.</p>
+    <p>IQT grows the margin only after it <i>sees</i> misses. Right after the expert changes their mind, the margin is still narrow, so the robot rarely asks; it learns of the change only from the 20% random interventions. Meanwhile the person watches the robot head the wrong way.</p>
+    <p>But that watching person is giving off information the whole time. Their face and voice change before they act. That is a free, early, but <b>weak</b> signal: it says "something seems wrong", not "here is the right action".</p>
+    <div class="two">
+      <div class="panel"><h3>HEV: Human Expectation Violation</h3><p>The person reacts to something unexpected the robot did: surprise, a frown, a sharp look. Here: the robot heading away from where the person wants the cup.</p></div>
+      <div class="panel"><h3>PDV: Personal Deviation</h3><p>Each person reacts differently. Some are very expressive, some barely move. So a reaction is judged against <i>this person's</i> normal level, learned in the first minutes.</p></div>
+    </div>
+  </section>
+
+  <section class="field" id="person">
+    <p class="num">2</p>
+    <h2>A simulated person who reacts</h2>
+    <p class="sub">No real faces yet: a simple model with the right shape, so the idea can be tested first.</p>
+<pre class="eq">deviation d_t  = how far the robot is heading from where the person wants (0 = right, 1 = very wrong)
+reaction r_t   = smoothed( sensitivity × d_t + noise )               sensitivity differs per person
+steps in       : more likely as d_t grows                             (instead of a constant 20%)</pre>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Person</th><th>Sensitivity</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Expressive</td><td>1.2</td><td>Reacts clearly, early.</td></tr>
+          <tr><td>Average</td><td>0.8</td><td>Reacts when the error is obvious.</td></tr>
+          <tr><td>Reserved</td><td>0.3</td><td>Barely reacts; the robot must rely on asking.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px"><b>PDV in practice:</b> during episode 1 (when nothing is wrong) the robot records the person's reaction level and its spread. Later, a reaction counts only if it is well above that person's own normal (for example, 3 spreads above their average). This stops an expressive person from triggering questions all the time, and lets a reserved person's small reactions still count.</p>
+  </section>
+
+  <section class="field" id="demo">
+    <p class="num">3</p>
+    <h2>Demo: the reaction comes before the hand</h2>
+    <p class="sub">The robot starts heading the wrong way at step 10. Grey dashed: how wrong it is. Orange: the person's reaction.</p>
+    <div class="play demo">
+      <div class="ctrl">
+        <label for="rS">Person's sensitivity <input type="range" id="rS" min="0.1" max="1.5" step="0.1" value="0.8"></label><output id="rSo">0.8</output>
+        <label for="rTh">Robot's threshold for "a reaction" <input type="range" id="rTh" min="0.1" max="0.9" step="0.05" value="0.3"></label><output id="rTho">0.30</output>
+      </div>
+      <div class="world"><svg id="reactSvg" viewBox="0 0 900 240" role="img" aria-label="Chart of the robot's deviation and the person's reaction over 60 steps, marking when the reaction is noticed and when the person steps in."></svg></div>
+      <p id="reactMsg" class="msg"></p>
+    </div>
+    <p>Move the sensitivity down to 0.3: a reserved person's reaction may never cross the threshold. That is why reactions are an <i>addition</i> to the margin, never a replacement.</p>
+  </section>
+
+  <section class="field" id="use">
+    <p class="num">4</p>
+    <h2>How the robot uses reactions</h2>
+    <p class="sub">Main idea: a reaction raises the chance of asking right now.</p>
+<pre class="eq">P(ask) = 1 − (1 − sigmoid(β · (u − τ))) · (1 − ρ · flag_t)
+
+flag_t = 1 if this person's reaction is well above their own normal (PDV), else 0
+ρ      = how much the robot trusts a reaction (e.g. 0.8)</pre>
+    <h3>Worked example</h3>
+<pre class="calc">just after the shift: margin still narrow, u = 0.03  →  sigmoid(100 · (0.03 − 0.06)) = 0.05
+no reaction:   P(ask) = 0.05
+reaction seen: P(ask) = 1 − (1 − 0.05)(1 − 0.8) = 1 − 0.95 · 0.2 = <span class="up">0.81</span></pre>
+    <p>So the robot asks <b>right when the person looks surprised</b>, gets the expert's action, sees a miss, and IQT widens the margin straight away, steps earlier than waiting for a random intervention.</p>
+    <p class="note">A second, riskier idea for later: count a reaction as a "probable miss" even when no action is given. That would update the margin without any feedback at all, but it breaks the guarantee (the robot would be guessing err). I will try it only as a side experiment and label it clearly.</p>
+  </section>
+
+  <section class="field" id="guarantee">
+    <p class="num">5</p>
+    <h2>Why the guarantee still holds</h2>
+    <p class="sub">IQT only needs to know p: the chance that feedback is seen at this step.</p>
+    <p>The paper's guarantee (Proposition 1) holds for any p, as long as the robot <b>knows</b> the p it used. The robot sees the reaction itself, so it knows exactly how likely it was to ask. So:</p>
+<pre class="eq">p_t = c + P(ask) − c · P(ask)          with the new P(ask) above: still known, so IQT is still valid</pre>
+    <p>There is one honest catch. In the paper, the person's own stepping-in rate c is a known constant. A realistic person steps in <i>more</i> when the robot is wrong, so the true c is not known. I will test what happens when the robot assumes c = 0.2 but the person behaves realistically, and whether the reaction signal can be used to <b>estimate</b> the person's real stepping-in chance.</p>
+  </section>
+
+  <section class="field" id="compare">
+    <p class="num">6</p>
+    <h2>What I will compare</h2>
+    <p class="sub">Shift and drift settings, 5 seeds, three kinds of person.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Version</th><th>Person</th><th>Robot asks when</th></tr></thead>
+        <tbody>
+          <tr><td>A. Paper</td><td>steps in at random, 20%</td><td>margin wide</td></tr>
+          <tr><td>B. Realistic person</td><td>steps in more when the robot is wrong; reacts</td><td>margin wide (ignores reactions; assumes c = 0.2)</td></tr>
+          <tr><td>C. + reactions</td><td>same as B</td><td>margin wide <b>or</b> reaction above the person's normal</td></tr>
+          <tr><td>D. + reactions, estimated c</td><td>same as B</td><td>as C, and p uses an estimate of the person's stepping-in chance from their reactions</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Measured</h3>
+    <ul>
+      <li><b>Delay:</b> steps from the expert's change to the robot's first question.</li>
+      <li><b>Wrong-way steps</b> the person has to watch before the robot adapts.</li>
+      <li><b>Total questions</b> and person interventions per episode.</li>
+      <li><b>Miscoverage</b>: does it stay near 10%?</li>
+    </ul>
+    <div class="key"><p><b>The question in one line:</b> do people's reactions let the robot notice an expert shift sooner, with fewer explicit questions, while keeping the margin honest? This links Dr Zhao's "when should a robot ask" with my "what do people's reactions tell a robot".</p></div>
+  </section>
+
+  <div class="next"><a href="experiments.html">← 4 Experiments</a><a href="results.html">6 Results →</a></div>
+  <footer>ConformalDAgger rebuild · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · Paper: Zhao, Simmons, Admoni, Ramdas, Bajcsy, ICLR 2025.</footer>
+</main>
+<script src="site.js?v=1"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConformalDAgger Studio</title>
+<style>
+  :root { --panel: rgba(14, 16, 20, 0.80); --ink: #eef1f5; --dim: #9aa6b4; --line: rgba(255,255,255,0.10);
+          --robot: #3fb950; --asked: #f5a623; --human: #4c8dff; --margin: #2ec4b6; --wide: #f5a623; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1c1d20; color: var(--ink);
+               font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  canvas { display: block; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: #1c1d20; z-index: 20; text-align: center; }
+  #bar { width: 300px; height: 6px; background: #2b2e33; border-radius: 3px; overflow: hidden; margin: 10px auto; }
+  #bar i { display: block; height: 100%; width: 0; background: var(--margin); transition: width .2s; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(8px); }
+  body.clean .ui { display: none !important; }
+  #title { left: 14px; top: 14px; padding: 10px 14px; max-width: 430px; }
+  #title h1 { margin: 0 0 2px; font-size: 16px; letter-spacing: .2px; }
+  #title p { margin: 0; color: var(--dim); font-size: 12px; }
+  #status { left: 14px; top: 92px; padding: 10px 14px; width: 400px; }
+  #ep { font-size: 22px; font-weight: 700; }
+  #ep small { font-size: 13px; color: var(--dim); font-weight: 500; margin-left: 6px; }
+  #who { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 10px; border-radius: 14px; font-weight: 600; }
+  #who i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  #who.robot { background: rgba(63,185,80,.18); color: var(--robot); } #who.robot i { background: var(--robot); }
+  #who.asked { background: rgba(245,166,35,.2); color: var(--asked); } #who.asked i { background: var(--asked); }
+  #who.human { background: rgba(76,141,255,.2); color: var(--human); } #who.human i { background: var(--human); }
+  #who.alone { background: rgba(255,255,255,.08); color: var(--ink); } #who.alone i { background: #ccc; }
+  .meter { margin-top: 10px; }
+  .meter .lbl { display: flex; justify-content: space-between; color: var(--dim); font-size: 11.5px; }
+  .meter .track { position: relative; height: 10px; background: #2b2e33; border-radius: 5px; margin-top: 3px; overflow: visible; }
+  .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--margin); transition: width .08s; }
+  .meter .tau { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; opacity: .8; }
+  #banner { left: 50%; top: 18px; transform: translateX(-50%); padding: 10px 18px; font-size: 15px; font-weight: 600;
+            border-color: rgba(245,166,35,.6); color: #ffd79a; opacity: 0; transition: opacity .5s; pointer-events: none; text-align: center; }
+  #banner.show { opacity: 1; }
+  #chartbox { right: 14px; top: 14px; padding: 10px 12px 8px; width: 380px; }
+  #chartbox h2, #legend h2 { margin: 0 0 4px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  #legend { right: 14px; top: 230px; padding: 10px 12px; width: 380px; font-size: 12px; }
+  #legend div { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  #legend span.sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+  #controls { left: 50%; bottom: 14px; transform: translateX(-50%); padding: 8px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  button, select { background: #2b2e33; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 5px 10px; font: inherit; cursor: pointer; }
+  button:hover, select:hover { background: #363a40; }
+  button.on { background: rgba(46,196,182,.25); border-color: rgba(46,196,182,.6); }
+  #seek { width: 260px; }
+  #caption { left: 50%; bottom: 70px; transform: translateX(-50%); padding: 8px 16px; font-size: 14px; max-width: 760px; text-align: center; }
+  body.clean #caption { display: block; bottom: 30px; font-size: 17px; }
+  body.nocaption #caption { display: none; }
+  #hint { position: fixed; right: 14px; bottom: 14px; color: var(--dim); font-size: 11px; }
+  body.clean #hint { display: none; }
+  @media (max-width: 900px) { #chartbox, #legend { display: none; } #status, #title { width: auto; max-width: calc(100% - 28px); } }
+</style>
+</head>
+<body>
+<div id="loading"><div><div style="font-size:15px">Loading the studio…</div><div id="bar"><i></i></div><div id="what" style="color:#9aa6b4;font-size:12px"></div></div></div>
+
+<div id="title" class="panel ui">
+  <h1>ConformalDAgger on a UR5e</h1>
+  <p>Re-implementation of Zhao et al., ICLR 2025: the robot keeps an uncertainty margin and asks the teacher for help when the margin grows.</p>
+</div>
+
+<div id="status" class="panel ui">
+  <div id="ep">Episode 1 <small>run 1 of 2</small></div>
+  <div id="goaltxt" style="color:var(--dim)"></div>
+  <div id="who" class="robot"><i></i><span>Robot acts alone</span></div>
+  <div class="meter">
+    <div class="lbl"><span>Margin size u (how unsure the robot is)</span><span id="uval">0.000</span></div>
+    <div class="track"><div class="fill" id="ufill"></div><div class="tau" id="utau" title="tau: above this the robot tends to ask"></div></div>
+  </div>
+  <div class="meter">
+    <div class="lbl"><span>Chance the robot asks</span><span id="pval">0%</span></div>
+    <div class="track"><div class="fill" id="pfill" style="background:var(--asked)"></div></div>
+  </div>
+</div>
+
+<div id="banner" class="panel">The teacher changed their mind: the mug now goes to the other coaster</div>
+
+<div id="chartbox" class="panel ui">
+  <h2>Help per episode (this run)</h2>
+  <canvas id="chart" width="712" height="300" style="width:356px;height:150px"></canvas>
+</div>
+
+<div id="legend" class="panel ui">
+  <h2>What you see</h2>
+  <div><span class="sw" style="background:rgba(46,196,182,.55);border:1px solid #2ec4b6"></span>Margin box: where the robot thinks the teacher's next move could be</div>
+  <div><span class="sw" style="background:rgba(120,170,255,.45)"></span>Ghost mug: what the teacher would do (hidden from the robot)</div>
+  <div><span class="sw" style="background:var(--robot)"></span>Gripper green: robot acts alone</div>
+  <div><span class="sw" style="background:var(--asked)"></span>Gripper amber: robot asked for help</div>
+  <div><span class="sw" style="background:var(--human)"></span>Gripper blue: teacher stepped in on their own</div>
+  <div><span class="sw" style="background:#7c4a2a"></span>Wooden coaster: the teacher's goal</div>
+</div>
+
+<div id="caption" class="panel"></div>
+
+<div id="controls" class="panel ui">
+  <select id="setting">
+    <option value="shift">Teacher changes mind (shift)</option>
+    <option value="drift">Goal slowly moves (drift)</option>
+    <option value="stationary">Teacher steady</option>
+    <option value="env">Start moved (environment)</option>
+  </select>
+  <button id="play">Pause</button>
+  <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+  <select id="jump"></select>
+  <input id="seek" type="range" min="0" max="1000" value="0">
+  <button id="tAlone" class="on" title="Also show the robot-alone check after each retraining">Alone checks</button>
+  <button id="tGhost" class="on">Ghost</button>
+  <button id="tBox" class="on">Margin</button>
+  <select id="cam"><option value="wide">Wide</option><option value="side">Side</option><option value="close">Close</option><option value="top">Top</option><option value="orbit">Orbit</option></select>
+  <button id="clean" title="H">Clean (video)</button>
+</div>
+<div id="hint">Space play/pause · ←/→ step · N next episode · H clean mode · C caption · 1-4 cameras</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="studio.js"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
