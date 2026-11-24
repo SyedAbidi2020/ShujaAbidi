@@ -293,6 +293,24 @@
             <span class="go">Open the Robot Failure page <span aria-hidden="true">→</span></span>
           </span>
         </a></li>
+        <li class="wide"><a class="project failure" href="https://syedabidi2020.github.io/robot-failure-attribution/?ref=main">
+          <svg viewBox="0 0 320 196" role="img" aria-label="Robot video and logs go into a vision-language model, which sorts the failure into one of four categories: perception, RL policy, hardware or physical contact.">
+            <text x="160" y="22" text-anchor="middle">Robot video + logs</text>
+            <rect class="box b3" x="112" y="32" width="96" height="32" rx="6"/><text x="160" y="53" text-anchor="middle">VLM reasons</text>
+            <path class="arrow a2" d="M160 64v8M43 72h234M43 72v20m-5-6 5 6 5-6M121 72v20m-5-6 5 6 5-6M199 72v20m-5-6 5 6 5-6M277 72v20m-5-6 5 6 5-6"/>
+            <rect class="box b1" x="6" y="96" width="74" height="34" rx="6"/><text x="43" y="118" text-anchor="middle">Perception</text>
+            <rect class="box b1" x="84" y="96" width="74" height="34" rx="6"/><text x="121" y="118" text-anchor="middle">RL policy</text>
+            <rect class="box b1" x="162" y="96" width="74" height="34" rx="6"/><text x="199" y="118" text-anchor="middle">Hardware</text>
+            <rect class="box b3" x="240" y="96" width="74" height="34" rx="6"/><text x="277" y="118" text-anchor="middle">Contact</text>
+            <text class="tag" x="160" y="158" text-anchor="middle">which part failed, and why</text>
+            <text x="160" y="184" text-anchor="middle">Version 1: PCMCI+ causal · Version 2: VLM</text>
+          </svg>
+          <span class="text">
+            <b>Robot Failure Attribution</b>
+            <span class="what">A vision-language model reads the robot's video and logs and decides which part failed: perception, the RL policy, the hardware or a physical contact. It builds on the PCMCI+ causal version above.</span>
+            <span class="go">Open the Failure Attribution page <span aria-hidden="true">→</span></span>
+          </span>
+        </a></li>
       </ul>
       <p class="joint"><a href="#jepa"><b>Jepa-CBCL-PR</b> joins JEPA and CBCL: can a stronger encoder help a robot's memory?</a></p>
     </div>
@@ -505,6 +523,30 @@
     </div>
     <figure><a href="papers/po-cbvf/"><img src="images/paper_pocbvf_ur5e.jpg" alt="Three UR5e arms side by side guiding a tool past two obstacles: one ignores camera noise, one uses the paper's filter, one uses the calibration change, with a clearance graph below." width="1280" height="720" loading="lazy"></a>
     <figcaption>The same camera noise in all three runs: ignoring it, the tool touches an obstacle; the paper's filter and the calibration change keep it clear.</figcaption></figure>
+
+    <div class="cols" style="margin-top:44px">
+      <div>
+        <h3 style="margin-top:0">RA-DP: a diffusion policy that replans at every step</h3>
+        <p class="note">X. Ye, R. H. Yang, J. Jin, Y. Li and A. Rasouli, <i>RA-DP: Rapid Adaptive Diffusion Policy for Training-Free High-frequency Robotics Replanning</i>, IROS 2025. Independent re-implementation; not the authors' code.</p>
+        <p>Diffusion policies plan a chunk of actions, then run it blind, and each chunk costs many network calls, so they react late. RA-DP keeps a queue of actions at rising noise levels: one network call per step cleans the next action, so the plan is refreshed every step and can be steered around new obstacles without retraining.</p>
+        <p>I wrote the per-action-noise U-Net, the training and the action queue in PyTorch and tested it on a Sawyer arm in MetaWorld, trained on 10 demonstrations with no obstacles. One addition: faults of four kinds (perception, policy, hardware, contact) injected in each of the five phases of pick-and-place. Fast replanning absorbs hardware faults but not perception faults, which gives a test for one failure category and shows where a new one is needed.</p>
+        <p class="links"><a href="papers/ra-dp/">Open the walkthrough</a></p>
+      </div>
+      <div class="panel">
+        <h3>Results</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Test</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Static obstacle, 60 runs</td><td>71.7% success, 0 collisions (paper 63.3%)</td></tr>
+            <tr><td>Moving obstacle, 40 runs</td><td>95% success, 0 collisions</td></tr>
+            <tr><td>Replanning rate</td><td>83.9 Hz vs 8.1 Hz for plain diffusion policy (~10×)</td></tr>
+            <tr><td>Hardware / perception faults</td><td>hardware absorbed (96–100%); perception at reach not (8%)</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <figure><a href="papers/ra-dp/"><img src="papers/ra-dp/assets/reach_static_seed6_last.png" alt="Three Sawyer arms side by side reaching past a red obstacle: plain diffusion policy, guided diffusion policy and RA-DP." width="1260" height="420" loading="lazy"></a>
+    <figcaption>Same start and the same obstacle, unseen in training: plain and guided diffusion policy hit it; RA-DP replans around it.</figcaption></figure>
   </section>
 
   <section class="field" id="simulation">
