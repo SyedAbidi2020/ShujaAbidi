@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDDL Basics</title>
+<meta name="description" content="What PDDL is, explained with Blocksworld: facts, actions, preconditions and effects, a worked plan, how a checker finds errors, and the Mystery version with meaningless names.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html" aria-current="page">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Background</p>
+    <h1>PDDL: the language of plans</h1>
+    <p class="lead">PDDL describes a world as a list of true facts, and each action as the facts it needs and the facts it changes. That is all a computer needs to check any plan exactly. This page explains it with the classic test world, Blocksworld.</p>
+    <ul class="contents">
+      <li><a href="#files"><b>1</b>Two files</a></li>
+      <li><a href="#facts"><b>2</b>Facts</a></li>
+      <li><a href="#actions"><b>3</b>Actions</a></li>
+      <li><a href="#plan"><b>4</b>A plan, step by step</a></li>
+      <li><a href="#errors"><b>5</b>How a plan fails</a></li>
+      <li><a href="#mystery"><b>6</b>Mystery Blocksworld</a></li>
+      <li><a href="#size"><b>7</b>How big is the world?</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="files">
+    <p class="num">1</p>
+    <h2>Two files: domain and problem</h2>
+    <p class="sub">The domain gives the rules. The problem gives the start and the goal.</p>
+    <div class="pair">
+      <div>
+        <h3>Domain: the rules (same for every problem)</h3>
+<pre class="code">(define (domain blocksworld)
+  (:predicates (clear ?x) (ontable ?x)
+               (handempty) (holding ?x) (on ?x ?y))
+  (:action pick-up
+    :parameters (?x)
+    :precondition (and (clear ?x) (ontable ?x) (handempty))
+    :effect (and (not (ontable ?x)) (not (clear ?x))
+                 (not (handempty)) (holding ?x)))
+  <span class="cm">; put-down, stack and unstack follow the same pattern</span>
+)</pre>
+      </div>
+      <div>
+        <h3>Problem: one task</h3>
+<pre class="code">(define (problem bw-3-3005)
+  (:domain blocksworld)
+  (:objects a b c)
+  (:init (handempty) (ontable b) (on c b)
+         (clear c) (ontable a) (clear a))
+  (:goal (and (on a c))))</pre>
+        <p>Three blocks. At the start c sits on b, and a is on the table. The goal: put a on c.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="field" id="facts">
+    <p class="num">2</p>
+    <h2>Facts</h2>
+    <p class="sub">A state is the list of facts that are true. Anything not listed is false.</p>
+    <div class="cols">
+      <figure class="dg" style="margin-top:0">
+        <svg viewBox="0 0 420 250" role="img" aria-label="Start of problem bw-3-3005: block c on block b, block a alone on the table, the robot hand empty above.">
+          <path class="ln" d="M210,8 V30 M176,44 Q176,30 210,30 Q244,30 244,44"/><text class="m" x="256" y="30">hand: empty</text>
+          <rect class="ba" x="110" y="100" width="56" height="56" rx="6"/><text class="t" x="138" y="135" text-anchor="middle" style="font:700 20px Georgia,serif">c</text>
+          <rect class="ba" x="110" y="156" width="56" height="56" rx="6"/><text class="t" x="138" y="191" text-anchor="middle" style="font:700 20px Georgia,serif">b</text>
+          <rect class="ba" x="254" y="156" width="56" height="56" rx="6"/><text class="t" x="282" y="191" text-anchor="middle" style="font:700 20px Georgia,serif">a</text>
+          <rect x="20" y="212" width="380" height="6" rx="3" class="ink" style="opacity:.55"/><text class="m" x="210" y="238" text-anchor="middle">table</text>
+        </svg>
+        <figcaption>The start state of bw-3-3005.</figcaption>
+      </figure>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Fact</th><th>Meaning</th><th>Here</th></tr></thead>
+          <tbody>
+            <tr><td><code>(ontable x)</code></td><td>x sits directly on the table</td><td>b, a</td></tr>
+            <tr><td><code>(on x y)</code></td><td>x sits directly on top of y</td><td>c on b</td></tr>
+            <tr><td><code>(clear x)</code></td><td>nothing is on top of x</td><td>c, a (not b)</td></tr>
+            <tr><td><code>(handempty)</code></td><td>the hand holds nothing</td><td>true</td></tr>
+            <tr><td><code>(holding x)</code></td><td>the hand holds x in the air</td><td>none</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:12px">So this state is exactly six facts:<br><code>(handempty) (ontable b) (on c b) (clear c) (ontable a) (clear a)</code></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="field" id="actions">
+    <p class="num">3</p>
+    <h2>Actions: what they need, what they change</h2>
+    <p class="sub">An action can happen only if all its preconditions are true. Then it adds some facts and deletes others.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Action</th><th>Needs (preconditions)</th><th>Adds</th><th>Deletes</th></tr></thead>
+        <tbody>
+          <tr><td><code>(pick-up x)</code><br>lift x from the table</td><td>clear x, ontable x, handempty</td><td>holding x</td><td>clear x, ontable x, handempty</td></tr>
+          <tr><td><code>(put-down x)</code><br>put x on the table</td><td>holding x</td><td>ontable x, clear x, handempty</td><td>holding x</td></tr>
+          <tr><td><code>(stack x y)</code><br>put x on y</td><td>holding x, clear y</td><td>on x y, clear x, handempty</td><td>holding x, clear y</td></tr>
+          <tr><td><code>(unstack x y)</code><br>lift x off y</td><td>on x y, clear x, handempty</td><td>holding x, clear y</td><td>on x y, clear x, handempty</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="key"><p><b>Everything follows from this table.</b> To check a plan, start from the initial facts and, for each action, test its preconditions, then add and delete. No guessing is ever needed. That is why a computer can check plans perfectly.</p></div>
+  </section>
+
+  <section class="field" id="plan">
+    <p class="num">4</p>
+    <h2>A plan, step by step</h2>
+    <p class="sub">The shortest plan for bw-3-3005 has two steps: pick up a, stack it on c.</p>
+    <figure class="dg">
+      <svg class="wide" viewBox="0 0 960 250" role="img" aria-label="Three states. Start: c on b, a on table, hand empty. After pick-up a: the hand holds a. After stack a c: a on c on b. The goal on a c is reached.">
+        <defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+        <g>
+          <rect class="ba" x="50" y="100" width="44" height="44" rx="5"/><text class="t" x="72" y="128" text-anchor="middle">c</text>
+          <rect class="ba" x="50" y="144" width="44" height="44" rx="5"/><text class="t" x="72" y="172" text-anchor="middle">b</text>
+          <rect class="ba" x="150" y="144" width="44" height="44" rx="5"/><text class="t" x="172" y="172" text-anchor="middle">a</text>
+          <rect x="20" y="188" width="220" height="5" rx="2" class="ink" style="opacity:.55"/>
+          <text class="t" x="130" y="30" text-anchor="middle">Start (s0)</text><text class="m" x="130" y="216" text-anchor="middle">handempty · clear a · clear c</text>
+        </g>
+        <path class="ar" d="M250 140h70" marker-end="url(#pa)"/><text class="m" x="285" y="128" text-anchor="middle">(pick-up a)</text>
+        <g transform="translate(330 0)">
+          <rect class="bo" x="98" y="48" width="44" height="44" rx="5"/><text class="t" x="120" y="76" text-anchor="middle">a</text>
+          <rect class="ba" x="50" y="144" width="44" height="44" rx="5"/><text class="t" x="72" y="172" text-anchor="middle">b</text>
+          <rect class="ba" x="50" y="100" width="44" height="44" rx="5"/><text class="t" x="72" y="128" text-anchor="middle">c</text>
+          <rect x="20" y="188" width="220" height="5" rx="2" class="ink" style="opacity:.55"/>
+          <text class="t" x="130" y="30" text-anchor="middle">After step 1 (s1)</text><text class="m" x="130" y="216" text-anchor="middle">holding a · hand is full</text>
+        </g>
+        <path class="ar" d="M580 140h70" marker-end="url(#pa)"/><text class="m" x="615" y="128" text-anchor="middle">(stack a c)</text>
+        <g transform="translate(660 0)">
+          <rect class="bg" x="50" y="56" width="44" height="44" rx="5"/><text class="t" x="72" y="84" text-anchor="middle">a</text>
+          <rect class="ba" x="50" y="100" width="44" height="44" rx="5"/><text class="t" x="72" y="128" text-anchor="middle">c</text>
+          <rect class="ba" x="50" y="144" width="44" height="44" rx="5"/><text class="t" x="72" y="172" text-anchor="middle">b</text>
+          <rect x="20" y="188" width="220" height="5" rx="2" class="ink" style="opacity:.55"/>
+          <text class="t" x="130" y="30" text-anchor="middle">After step 2 (s2)</text><text class="m" x="130" y="216" text-anchor="middle">(on a c) is true: goal reached</text>
+        </g>
+      </svg>
+    </figure>
+<pre class="code">[Action 1: (pick-up a)]
+- Preconditions: (clear a) (handempty) (ontable a)
+- Current state: (clear a) (clear c) (handempty) (on c b) (ontable a) (ontable b)
+- All preconditions are satisfied
+- Effects: add (holding a); delete (clear a) (handempty) (ontable a)
+- Resulting state: (clear c) (holding a) (on c b) (ontable b)
+[Action 2: (stack a c)]
+- Preconditions: (clear c) (holding a)
+- Current state: (clear c) (holding a) (on c b) (ontable b)
+- All preconditions are satisfied
+- Effects: add (clear a) (handempty) (on a c); delete (clear c) (holding a)
+- Resulting state: (clear a) (handempty) (on a c) (on c b) (ontable b)
+
+<span class="ok">The goal (on a c) is satisfied in the final state. The plan succeeds.</span></pre>
+    <p>This exact form of text, written by the checker, is what the model learns to produce in <a href="phase1.html">Phase 1</a>.</p>
+  </section>
+
+  <section class="field" id="errors">
+    <p class="num">5</p>
+    <h2>How a plan fails</h2>
+    <p class="sub">There are only two ways: an action whose preconditions are false, or a goal that is never reached.</p>
+    <div class="pair">
+      <div class="card o"><h3>Precondition violation</h3><p>Swap the two steps, so the robot tries <code>(stack a c)</code> first:</p>
+<pre class="code">[Action 1: (stack a c)]
+- Preconditions: (clear c) (holding a)
+- Current state: (clear a) (clear c) (handempty) ...
+- <span class="hl">VIOLATION: the precondition (holding a)
+  is not true in the current state</span></pre>
+        <p>The hand is empty. Nothing after a failed step can be checked.</p></div>
+      <div class="card b"><h3>Goal not reached</h3><p>Stop after <code>(pick-up a)</code>: every step is legal, but the job isn't done.</p>
+<pre class="code">All actions are applicable, but the goal
+is not reached: <span class="hl">(on a c)</span> is not true
+in the final state.</pre>
+        <p>The checker names the exact missing fact.</p></div>
+    </div>
+    <p>Language models make the first kind far more often. After Phase 1, 160 of the 172 wrong first tries failed on a precondition: the model lost track of the state, for example trying to stack a block it wasn't holding.</p>
+  </section>
+
+  <section class="field" id="mystery">
+    <p class="num">6</p>
+    <h2>Mystery Blocksworld: logic without familiar words</h2>
+    <p class="sub">The same world with every name replaced, so a model can't lean on what the words usually mean.</p>
+    <div class="cols">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Blocksworld</th><th>Mystery</th></tr></thead>
+          <tbody>
+            <tr><td>pick-up</td><td>attack</td></tr><tr><td>put-down</td><td>succumb</td></tr>
+            <tr><td>stack</td><td>overcome</td></tr><tr><td>unstack</td><td>feast</td></tr>
+            <tr><td>ontable</td><td>planet</td></tr><tr><td>on</td><td>craves</td></tr>
+            <tr><td>clear</td><td>province</td></tr><tr><td>handempty</td><td>harmony</td></tr>
+            <tr><td>holding</td><td>pain</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <p>The renaming comes from PlanBench. <code>(craves c b)</code> simply means c is on b, and <code>(attack a)</code> means pick up a. The rules are identical; only the words change.</p>
+        <p>A model that truly reads the rules in the domain file does equally well on both. A model that relies on what "stack" or "on" usually mean collapses on Mystery. That's why every result here is reported for both.</p>
+<pre class="code">(:init (harmony) (planet b) (craves c b)
+       (province c) (planet a) (province a))
+(:goal (and (craves a c)))
+<span class="cm">; plan: (attack a) (overcome a c)</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="field" id="size">
+    <p class="num">7</p>
+    <h2>How big is the world?</h2>
+    <p class="sub">The number of facts grows slowly. The number of arrangements explodes.</p>
+    <p>With n blocks there are n facts each for <code>ontable</code>, <code>clear</code> and <code>holding</code>, n×(n−1) for <code>on</code>, and one <code>handempty</code>: (n+1)² possible facts in total. Only a few are true at once: one position fact per block, one <code>clear</code> per tower, and the hand.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Blocks</th><th>Possible facts</th><th>Arrangements, hand empty</th><th>Arrangements, holding a block</th><th>All states</th></tr></thead>
+        <tbody>
+          <tr><td>3</td><td>16</td><td>13</td><td>9</td><td>22</td></tr>
+          <tr><td>4</td><td>25</td><td>73</td><td>52</td><td>125</td></tr>
+          <tr><td>5</td><td>36</td><td>501</td><td>365</td><td>866</td></tr>
+          <tr><td>6</td><td>49</td><td>4,051</td><td>3,006</td><td>7,057</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Our training and test problems use 3 to 6 blocks. A 6-block explanation can run to about 3,000 tokens, which is why longer problems are much harder for a small model. You can explore these worlds yourself on the <a href="play.html">Try It</a> page.</p>
+  </section>
+
+  <div class="next"><a href="index.html">← Overview</a><a href="planbench.html">PlanBench →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · All numbers come from my own runs on an 8 GB laptop GPU.</footer>
+</main>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

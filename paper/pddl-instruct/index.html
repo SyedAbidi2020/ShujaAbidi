@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teaching AI to Plan</title>
+<meta name="description" content="Rebuilding PDDL-INSTRUCT: a small language model learns to write logical step-by-step plans, checked by an exact plan checker. From 0 to 71 of 200 test problems on one laptop GPU.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html" aria-current="page">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">AI planning · language models</p>
+    <h1>Teaching a language model to plan, one checked step at a time</h1>
+    <p class="lead">Language models write plans that sound right but break the rules. I rebuilt a recent MIT method, PDDL-INSTRUCT, in which an exact plan checker grades every step the model writes and then teaches it to fix its own mistakes. A small open model went from solving none of 200 test problems to 71, trained on one laptop GPU.</p>
+    <ul class="contents">
+      <li><a href="#compare" class="hot"><b>★</b>Original paper vs this rebuild</a></li>
+      <li><a href="#problem"><b>1</b>The problem</a></li>
+      <li><a href="#idea"><b>2</b>The idea</a></li>
+      <li><a href="#method"><b>3</b>The method in two phases</a></li>
+      <li><a href="#numbers"><b>4</b>Results at a glance</a></li>
+      <li><a href="#why"><b>5</b>Why it matters for robots</a></li>
+    </ul>
+  </section>
+
+  <section class="compare" id="compare">
+    <p class="eyebrow">At a glance</p>
+    <h2>Original paper vs this rebuild: what is different</h2>
+    <p class="sub">Same method, same two phases, same checker idea. The model, the way it is trained and the budget are very different, so the scores are not directly comparable.</p>
+
+    <div class="vs-head" aria-hidden="true">
+      <div class="vs-a"><b>Original paper</b><span>Verma et al., with Julie Shah (MIT), 2025</span></div>
+      <div class="vs-b"><b>This rebuild</b><span>written from scratch, run on one laptop</span></div>
+    </div>
+    <div class="table-scroll">
+      <table class="vs">
+        <thead><tr><th scope="col">What</th><th scope="col">Original paper</th><th scope="col">This rebuild</th><th scope="col">What it means</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="4">The model</td></tr>
+          <tr><th scope="row">Language model</th><td>Llama-3-8B (GPT-4 also reported)</td><td>Qwen2.5-1.5B-Instruct</td><td>About <b>5× fewer parameters</b>. A smaller model holds less, so lower scores are expected.</td></tr>
+          <tr><th scope="row">Starting point</th><td>base model scores 28% Blocksworld, 1% Mystery</td><td>base model scores 0% on both</td><td>The paper's model could already plan a little. Ours started from nothing.</td></tr>
+          <tr class="grp"><td colspan="4">How it is trained</td></tr>
+          <tr><th scope="row">Method</th><td><span class="pill a">Full fine-tuning</span> every weight is updated</td><td><span class="pill b">LoRA</span> original weights frozen, small add-on matrices trained</td><td>Full fine-tuning can change everything but needs a lot of GPU memory. LoRA fits a small GPU; it can be slightly weaker. See the box below.</td></tr>
+          <tr><th scope="row">Weights trained</th><td>all 8 billion</td><td>18.5 million of 1.56 billion (<b>1.2%</b>)</td><td>The saved result is a 70 MB adapter, not a full model copy.</td></tr>
+          <tr><th scope="row">Learning rate</th><td>2e-5</td><td>2e-4</td><td>LoRA's small matrices need about 10× higher.</td></tr>
+          <tr><th scope="row">Batch size</th><td>16</td><td>16 (1 example × 16 accumulated)</td><td>Same effective batch, built up one example at a time to save memory.</td></tr>
+          <tr><th scope="row">Phase 2 losses</th><td>a reasoning loss on the difference between claimed and true states, plus a plan loss</td><td>ordinary token loss on checker-written answers, plus an extra copy scored only on the final plan</td><td>The paper's state-difference loss can't be trained by gradient descent as written (counting differing facts has no gradient), so a practical version is used.</td></tr>
+          <tr><th scope="row">Hardware</th><td>desktop GPUs (two RTX 3080s, as reported)</td><td>one 8 GB laptop GPU (RTX 4060)</td><td>Phase 1 took 82 minutes, Phase 2 about 3 hours.</td></tr>
+          <tr class="grp"><td colspan="4">Data and testing</td></tr>
+          <tr><th scope="row">Domains</th><td>Blocksworld, Mystery Blocksworld, Logistics</td><td>Blocksworld, Mystery Blocksworld</td><td>Logistics is not done yet.</td></tr>
+          <tr><th scope="row">Problems</th><td>PlanBench instances</td><td>own generator, same domains and Mystery renaming, 3–6 blocks</td><td>1,440 Phase 1 examples, 320 Phase 2 problems, 200 test problems, kept strictly apart.</td></tr>
+          <tr><th scope="row">Plan checker</th><td>VAL, the standard validator</td><td>own checker in Python that follows VAL's rules and report style</td><td>Also checks every state the model claims, not just the plan.</td></tr>
+          <tr><th scope="row">Code</th><td>not released</td><td>everything written from scratch</td><td>Some details had to be decided independently.</td></tr>
+          <tr class="grp"><td colspan="4">Results (valid plans)</td></tr>
+          <tr><th scope="row">Blocksworld</th><td>28% → <b>94%</b></td><td>0% → <b>47%</b> (45% with sampling)</td><td rowspan="3">Both confirm the method's two claims: checker-written reasoning makes the model plan, and feedback training teaches it to repair its plans. The gap comes mainly from model size, LoRA and budget.</td></tr>
+          <tr><th scope="row">Mystery</th><td>1% → <b>64%</b></td><td>0% → <b>19%</b> (26% with sampling)</td></tr>
+          <tr><th scope="row">Logistics</th><td>11% → <b>79%</b></td><td>not run yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Full fine-tuning vs LoRA, in plain words</h3>
+    <div class="two">
+      <div class="card"><h3>Full fine-tuning (paper)</h3>
+        <p>Every one of the model's weights is adjusted. The optimiser must also store extra numbers for each weight, so training an 8-billion-parameter model this way typically needs around 100 GB of GPU memory or more, spread over several GPUs. The result is a complete new copy of the model.</p></div>
+      <div class="card o"><h3>LoRA (this rebuild)</h3>
+        <p>The original weights stay frozen. Beside each layer, two small matrices are added and only they are trained (here 1.2% of the model). It fits in 8 GB, trains quickly, and the result is a small file loaded on top of the original model. It learns a new <i>format</i> very well; it can fall behind full fine-tuning when a lot of new <i>knowledge</i> is needed.</p></div>
+    </div>
+<pre class="code">Full fine-tuning:   W_new = W + ΔW          ΔW is as big as W (all weights change)
+LoRA:               W_new = W + B · A       W frozen; A and B are thin (rank 16)</pre>
+  </section>
+
+  <section class="field" id="problem">
+    <p class="num">1</p>
+    <h2>The problem</h2>
+    <p class="sub">A plan is only useful if every step is allowed at the moment it happens.</p>
+    <p>Ask a language model to stack some blocks and it will happily write <code>stack a on c</code> while its hand is still empty. Each step reads well; together they are impossible. This is a known weakness: on <a href="planbench.html">PlanBench</a>, the standard test of planning in language models, even large models fail on many problems, and they do much worse when the words are replaced by meaningless ones, which shows they rely on familiar wording rather than logic.</p>
+    <p>Planning has a precise language, <b>PDDL</b> (Planning Domain Definition Language). A PDDL file lists the facts that can be true, and for each action the facts it <b>needs</b> (preconditions) and the facts it <b>changes</b> (effects). Given a PDDL problem, a computer can check any plan exactly. The <a href="pddl.html">PDDL Basics</a> page explains it with pictures, and the <a href="planbench.html">PlanBench</a> page describes the benchmark itself.</p>
+  </section>
+
+  <section class="field" id="idea">
+    <p class="num">2</p>
+    <h2>The idea</h2>
+    <p class="sub">Let a perfect checker be the teacher.</p>
+    <p>A plan checker (like the standard tool VAL) never makes mistakes: for each action it says whether every precondition holds, what the action changes, and whether the goal is reached. PDDL-INSTRUCT uses that checker in two ways:</p>
+    <div class="two">
+      <div class="card"><h3>As a writer of examples</h3><p>It writes thousands of perfect step-by-step explanations: "this precondition holds, these facts are added, this is the new state". The model learns to reason in exactly that form.</p></div>
+      <div class="card o"><h3>As a grader</h3><p>It grades the model's own plans and every state the model claims, and says precisely what went wrong. The model is trained to use that feedback to repair its plan.</p></div>
+    </div>
+    <div class="key"><p><b>Why it works:</b> the model doesn't just copy answers. It learns the habit of checking each step, and because its reasoning is written out, the checker can catch the exact step where it goes wrong.</p></div>
+  </section>
+
+  <section class="field" id="method">
+    <p class="num">3</p>
+    <h2>The method in two phases</h2>
+    <p class="sub">First learn the language of checking; then learn to plan and repair with feedback.</p>
+    <figure class="dg">
+      <svg class="wide" viewBox="0 0 1000 245" role="img" aria-label="Pipeline. A problem generator makes Blocksworld and Mystery problems. An A-star planner and the exact checker write 1,440 Phase 1 examples. Phase 1 fine-tunes Qwen 1.5B with LoRA. Phase 2 repeats: the model writes a plan, the checker grades it, and the model trains on its correct answers and on repaired plans with feedback. The result is tested on 200 unseen problems with up to 3 feedback rounds.">
+        <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+        <rect class="bb" x="10" y="40" width="170" height="92" rx="9"/><text class="t" x="95" y="70" text-anchor="middle">Problem generator</text><text class="m" x="95" y="90" text-anchor="middle">Blocksworld + Mystery</text><text class="m" x="95" y="107" text-anchor="middle">3–6 blocks, by seed</text>
+        <rect class="bx" x="220" y="40" width="170" height="92" rx="9"/><text class="t" x="305" y="70" text-anchor="middle">A* planner + checker</text><text class="m" x="305" y="90" text-anchor="middle">shortest plans and</text><text class="m" x="305" y="107" text-anchor="middle">exact explanations</text>
+        <rect class="ba" x="430" y="40" width="170" height="92" rx="9"/><text class="lab ca" x="515" y="30" text-anchor="middle">PHASE 1</text><text class="t" x="515" y="70" text-anchor="middle">Instruction tuning</text><text class="m" x="515" y="90" text-anchor="middle">1,440 worked examples</text><text class="m" x="515" y="107" text-anchor="middle">LoRA on Qwen 1.5B</text>
+        <rect class="bo" x="640" y="40" width="200" height="92" rx="9"/><text class="lab co" x="740" y="30" text-anchor="middle">PHASE 2</text><text class="t" x="740" y="70" text-anchor="middle">Learn from feedback</text><text class="m" x="740" y="90" text-anchor="middle">plan → checker grades →</text><text class="m" x="740" y="107" text-anchor="middle">train on fixes, 20 rounds</text>
+        <rect class="bg" x="870" y="40" width="120" height="92" rx="9"/><text class="t" x="930" y="70" text-anchor="middle">Test</text><text class="m" x="930" y="90" text-anchor="middle">200 unseen</text><text class="m" x="930" y="107" text-anchor="middle">problems</text>
+        <path class="ar" d="M180 86h38" marker-end="url(#a1)"/><path class="ar" d="M390 86h38" marker-end="url(#a1)"/><path class="ar" d="M600 86h38" marker-end="url(#a1)"/><path class="ar" d="M840 86h28" marker-end="url(#a1)"/>
+        <path class="fb" d="M700 132 v52 h80 v-50" marker-end="url(#a1)"/>
+        <text class="m" x="740" y="204" text-anchor="middle">repeat: sample plans, grade, train</text>
+        <text class="m" x="515" y="160" text-anchor="middle">teaches: preconditions → effects</text><text class="m" x="515" y="177" text-anchor="middle">→ new state → goal check</text>
+        <text class="m" x="930" y="160" text-anchor="middle">model may get</text><text class="m" x="930" y="177" text-anchor="middle">up to 3 rounds</text><text class="m" x="930" y="194" text-anchor="middle">of checker feedback</text>
+        <text class="m" x="305" y="160" text-anchor="middle">the "perfect teacher":</text><text class="m" x="305" y="177" text-anchor="middle">every example is correct</text>
+        <text class="m" x="500" y="234" text-anchor="middle">All on one laptop with an 8 GB GPU: Phase 1 took 82 minutes, Phase 2 about 3 hours.</text>
+      </svg>
+      <figcaption>The two training phases. The checker (written from scratch, following the rules of the standard VAL tool) is used both to make training data and to grade the model.</figcaption>
+    </figure>
+    <div class="two">
+      <div class="card"><h3><a href="phase1.html">Phase 1: instruction tuning</a></h3><p>The model reads 1,440 worked examples: explain why a correct plan works, find the error in a broken plan, and write a plan step by step. It learns the format of logical checking.</p></div>
+      <div class="card o"><h3><a href="phase2.html">Phase 2: learning from the checker</a></h3><p>The model writes its own plans. The checker grades every step. Correct answers are kept; wrong ones come back with feedback and a repaired plan, and the model trains on both.</p></div>
+    </div>
+  </section>
+
+  <section class="field" id="numbers">
+    <p class="num">4</p>
+    <h2>Results at a glance</h2>
+    <p class="sub">200 test problems never seen in training: 100 Blocksworld, 100 Mystery.</p>
+    <div class="big">
+      <div><b>0</b><span>solved by the base model (Qwen2.5-1.5B-Instruct)</span></div>
+      <div><b>28</b><span>after Phase 1, first try</span></div>
+      <div><b>66</b><span>after Phase 2 with 3 rounds of checker feedback</span></div>
+      <div><b>71</b><span>the same, sampling instead of greedy in rounds 2–3</span></div>
+    </div>
+    <div class="chart" data-chart='{"type":"bar","label":"Valid plans out of 100 per domain at each stage. Blocksworld: 0, 17, 24, 47, 45. Mystery: 0, 11, 7, 19, 26.","max":60,"ticks":[0,20,40,60],"unit":"%","groups":["Base model","Phase 1","Phase 2|first try","Phase 2|3 feedback rounds","Phase 2|+ sampling"],"series":[{"name":"Blocksworld","color":"--s1","values":[0,17,24,47,45]},{"name":"Mystery","color":"--s2","values":[0,11,7,19,26]}]}'>
+      <h3>Valid plans on the test set</h3>
+    </div>
+    <p>Full numbers, the comparison with the paper, and the limits of this rebuild are on the <a href="results.html">Results</a> page.</p>
+  </section>
+
+  <section class="field" id="why">
+    <p class="num">5</p>
+    <h2>Why it matters for robots</h2>
+    <p class="sub">A robot that explains its plan step by step can be checked before it acts.</p>
+    <p>A robot asked to tidy an office needs a plan: which door to open, what to pick up first, where to put it. If a language model writes that plan, a mistake means a robot trying to grab something it can't reach. With this method the plan comes with its reasoning, a checker can verify each step before the robot moves, and when the check fails the model gets precise feedback and repairs the plan. The same idea links to my other work on <a href="https://syedabidi2020.github.io/semantic-safety-demo/">semantic safety</a> and <a href="https://syedabidi2020.github.io/HumanRobotInteraction/">human-robot interaction</a>.</p>
+    <div class="note"><b>Source paper:</b> P. Verma et al., with Julie Shah (MIT), <i>Teaching LLMs to Plan: Logical Chain-of-Thought Instruction Tuning for Symbolic Planning</i>, arXiv 2509.13351, 2025. The authors did not release code; everything here, from the checker to the training, was written from scratch.</div>
+  </section>
+
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · All numbers come from my own runs on an 8 GB laptop GPU.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

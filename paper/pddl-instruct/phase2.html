@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 2: Learning from Feedback</title>
+<meta name="description" content="Phase 2 of PDDL-INSTRUCT: the model writes its own plans, an exact checker grades every step, and the model trains on its correct answers and on repaired plans with feedback.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html" aria-current="page">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Phase 2</p>
+    <h1>Learning from the checker's feedback</h1>
+    <p class="lead">After Phase 1 the model could explain errors in a given plan, but couldn't fix its own. In Phase 2 it writes plans, the checker grades every step and every state it claims, and the model trains on what the checker says.</p>
+    <ul class="contents">
+      <li><a href="#loop"><b>1</b>The loop</a></li>
+      <li><a href="#feedback"><b>2</b>What the feedback looks like</a></li>
+      <li><a href="#repair"><b>3</b>Building the repaired answer</a></li>
+      <li><a href="#stages"><b>4</b>Two stages</a></li>
+      <li><a href="#run"><b>5</b>The training run</a></li>
+      <li><a href="#test"><b>6</b>Testing with feedback rounds</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="loop">
+    <p class="num">1</p>
+    <h2>The loop</h2>
+    <p class="sub">Write, grade, learn, repeated 20 times on fresh problems.</p>
+    <figure class="dg">
+      <svg class="wide" viewBox="0 0 1000 300" role="img" aria-label="Phase 2 loop. The model writes step-by-step plans for 16 problems with some randomness. The checker grades the plan and every claimed state. If fully correct, the model's own answer becomes a training example. If wrong, two examples are made: the feedback prompt with a repaired answer, and the plain prompt with the repaired answer. One update on all examples, then the next 16 problems.">
+        <defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+        <rect class="bb" x="10" y="100" width="170" height="90" rx="9"/><text class="t" x="95" y="130" text-anchor="middle">16 new problems</text><text class="m" x="95" y="150" text-anchor="middle">from D2 (never</text><text class="m" x="95" y="167" text-anchor="middle">seen in Phase 1)</text>
+        <rect class="ba" x="220" y="100" width="170" height="90" rx="9"/><text class="t" x="305" y="130" text-anchor="middle">Model writes plans</text><text class="m" x="305" y="150" text-anchor="middle">step by step, with</text><text class="m" x="305" y="167" text-anchor="middle">some randomness (T 0.7)</text>
+        <rect class="bx" x="430" y="100" width="170" height="90" rx="9"/><text class="t" x="515" y="130" text-anchor="middle">Checker grades</text><text class="m" x="515" y="150" text-anchor="middle">the plan and every</text><text class="m" x="515" y="167" text-anchor="middle">state it claims</text>
+        <rect class="bg" x="660" y="20" width="200" height="74" rx="9"/><text class="t" x="760" y="48" text-anchor="middle">Fully correct</text><text class="m" x="760" y="68" text-anchor="middle">keep its own answer</text><text class="m" x="760" y="84" text-anchor="middle">as a training example</text>
+        <rect class="bo" x="660" y="196" width="200" height="84" rx="9"/><text class="t" x="760" y="222" text-anchor="middle">Wrong</text><text class="m" x="760" y="242" text-anchor="middle">feedback prompt → repaired answer</text><text class="m" x="760" y="258" text-anchor="middle">plain prompt → repaired answer</text>
+        <rect class="ba" x="890" y="110" width="100" height="70" rx="9"/><text class="t" x="940" y="140" text-anchor="middle">1 update</text><text class="m" x="940" y="160" text-anchor="middle">LoRA</text>
+        <path class="ar" d="M180 145h38" marker-end="url(#b1)"/><path class="ar" d="M390 145h38" marker-end="url(#b1)"/>
+        <path class="ar" d="M600 135 L658 70" marker-end="url(#b1)"/><path class="ar" d="M600 155 L658 225" marker-end="url(#b1)"/>
+        <path class="ar" d="M860 60 L905 108" marker-end="url(#b1)"/><path class="ar" d="M860 235 L905 182" marker-end="url(#b1)"/>
+        <path class="fb" d="M940 110 V10 H95 V98" marker-end="url(#b1)"/><text class="m" x="500" y="24" text-anchor="middle">next iteration: 16 more problems (20 iterations in total)</text>
+      </svg>
+      <figcaption>The model trains on its own successes and on corrected versions of its failures. Every training answer is still correct, because the checker writes the reasoning for the repaired plan.</figcaption>
+    </figure>
+    <p>The checker catches three kinds of mistake: an action whose <b>preconditions</b> are false, a claimed <b>state</b> that is wrong (the model applied the effects incorrectly even though the action was legal), and a <b>goal</b> that isn't reached.</p>
+  </section>
+
+  <section class="field" id="feedback">
+    <p class="num">2</p>
+    <h2>What the feedback looks like</h2>
+    <p class="sub">The same style of report as VAL, the standard plan validator.</p>
+    <p>Suppose that on the tower problem (goal: b on c on a) the model writes <code>(pick-up c) (stack c a) (stack b c)</code>, forgetting to pick up b. The feedback prompt it gets back:</p>
+<pre class="code">[INSTRUCTION] You previously generated a plan with step-by-step reasoning.
+The validator has provided feedback on your reasoning. Use this feedback to
+generate a corrected plan with improved logical reasoning.
+
+[DOMAIN] ...   [PROBLEM] ...
+
+[PREVIOUS PLAN]
+Step 1: (pick-up c) - VALID
+Step 2: (stack c a) - VALID
+Step 3: (stack b c) - <span class="hl">INVALID</span>
+
+[VAL FEEDBACK]
+Plan Validation details
+-----------------------
+Checking next happening (time 1)
+Deleting (ontable c)
+Deleting (clear c)
+Deleting (handempty)
+Adding (holding c)
+
+Checking next happening (time 2)
+Deleting (holding c)
+Deleting (clear a)
+Adding (clear c)
+Adding (handempty)
+Adding (on c a)
+
+Checking next happening (time 3)
+Plan failed because of unsatisfied precondition in:
+(stack b c)
+Plan failed to execute
+
+Plan Repair Advice:
+
+(stack b c) has an unsatisfied precondition at time 3
+<span class="hl">(Set (holding b) to true)</span>
+
+[STEP BY STEP PLANNING]</pre>
+  </section>
+
+  <section class="field" id="repair">
+    <p class="num">3</p>
+    <h2>Building the repaired answer</h2>
+    <p class="sub">Keep what the model got right, finish with the planner, let the checker write the reasoning.</p>
+    <ol class="steps">
+      <li><b>Keep the model's valid steps.</b> Here, <code>(pick-up c) (stack c a)</code> are both legal, so they stay. The model learns that its first steps were fine.</li>
+      <li><b>Finish with A*.</b> From the state reached after those steps, the planner finds the shortest way to the goal: <code>(pick-up b) (stack b c)</code>. If keeping the model's steps would make the plan much longer than the shortest one, the shortest plan is used instead.</li>
+      <li><b>Write the reasoning exactly.</b> The checker writes the full step-by-step answer for the repaired plan, with every state correct, ending in <code>[FINAL PLAN] (pick-up c), (stack c a), (pick-up b), (stack b c)</code>.</li>
+      <li><b>Make two examples.</b> The feedback prompt above with the repaired answer teaches <i>how to use feedback</i>. The plain planning prompt with the repaired answer teaches <i>how to get it right first time</i>.</li>
+    </ol>
+  </section>
+
+  <section class="field" id="stages">
+    <p class="num">4</p>
+    <h2>Two stages</h2>
+    <p class="sub">First train on the whole reasoning chain; then also stress the final plan.</p>
+    <div class="two">
+      <div class="card"><h3>Stage 1: iterations 1–10</h3><p>The loss covers the whole answer: every precondition check, effect and state. About 30 training examples per iteration.</p></div>
+      <div class="card o"><h3>Stage 2: iterations 11–20</h3><p>The same, plus an extra copy of each example whose loss covers only the <code>[FINAL PLAN]</code> line, so getting the plan itself right counts more. About 58 examples per iteration.</p></div>
+    </div>
+    <div class="note"><b>Where this differs from the paper:</b> the paper describes a reasoning loss based on the difference between the claimed and true states, and a separate plan loss. As written, the state-difference loss can't be trained by gradient descent (counting differing facts is not differentiable), and no code was released. This rebuild uses the practical version above: ordinary token loss on checker-written answers, with the extra plan-only copy in stage 2.</div>
+  </section>
+
+  <section class="field" id="run">
+    <p class="num">5</p>
+    <h2>The training run</h2>
+    <p class="sub">20 iterations × 16 problems, one update each: about 3 hours.</p>
+    <div class="chart" data-chart='{"type":"bar","label":"Valid plans out of 16 sampled during each of the 20 Phase 2 iterations: 1,2,3,1,1,3,1,2,0,3 in stage 1 and 5,3,2,2,3,2,1,4,3,1 in stage 2.","max":6,"ticks":[0,2,4,6],"suffix":" of 16 valid","groups":["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"],"notes":["stage 1","stage 1","stage 1","stage 1","stage 1","stage 1","stage 1","stage 1","stage 1","stage 1","stage 2","stage 2","stage 2","stage 2","stage 2","stage 2","stage 2","stage 2","stage 2","stage 2"],"series":[{"name":"Valid plans while training","color":"--s1","values":[1,2,3,1,1,3,1,2,0,3,5,3,2,2,3,2,1,4,3,1]}]}'>
+      <h3>Valid plans per iteration (out of 16, sampled)</h3>
+    </div>
+    <p>Stage 1 averaged 1.7 valid plans out of 16, stage 2 about 2.6. These are noisy because each iteration sees only 16 new problems, written with randomness. What matters is the effect on the test set, below. The run used the same 8 GB laptop GPU; an out-of-memory crash in iteration 10 was fixed (clearing GPU memory after each example) and the run resumed from the saved iteration 9.</p>
+  </section>
+
+  <section class="field" id="test">
+    <p class="num">6</p>
+    <h2>Testing with feedback rounds</h2>
+    <p class="sub">At test time the model gets up to three chances, each with the checker's feedback on its last plan.</p>
+    <div class="chart" data-chart='{"type":"line","label":"Phase 2 valid plans after 0 to 3 feedback rounds. Blocksworld 24, 43, 45, 47 percent. Mystery 7, 10, 15, 19 percent.","max":60,"ticks":[0,20,40,60],"unit":"%","xs":["first try","1","2","3"],"xName":"Feedback rounds:","xTitle":"feedback rounds","endLabels":true,"series":[{"name":"Blocksworld","color":"--s1","values":[24,43,45,47]},{"name":"Mystery","color":"--s2","values":[7,10,15,19]}]}'>
+      <h3>Valid plans after each feedback round (greedy decoding)</h3>
+    </div>
+    <p>The first round of feedback nearly doubles the Blocksworld score (24% → 43%), so Phase 2 did teach the model to use the checker's report. After Phase 1, the same feedback fixed nothing. Later rounds help less, partly because with greedy decoding the model often repeats the same wrong plan. Sampling with some randomness in rounds 2 and 3 breaks those loops and lifts Mystery from 19% to 26% (total 71 of 200). See <a href="results.html">Results</a>.</p>
+  </section>
+
+  <div class="next"><a href="phase1.html">← Phase 1</a><a href="results.html">Results →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · All numbers come from my own runs on an 8 GB laptop GPU.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

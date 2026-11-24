@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 1: Instruction Tuning</title>
+<meta name="description" content="Phase 1 of PDDL-INSTRUCT: 1,440 checker-written examples teach a small language model to explain plans and plan step by step, trained with LoRA on an 8 GB GPU.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html" aria-current="page">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Phase 1</p>
+    <h1>Instruction tuning: learning the language of checking</h1>
+    <p class="lead">The base model solved none of the 200 test problems. Phase 1 shows it 1,440 worked examples, every one written by the exact checker, so it learns to reason about plans the way the checker does: preconditions, effects, new state, goal.</p>
+    <ul class="contents">
+      <li><a href="#data"><b>1</b>The training data</a></li>
+      <li><a href="#kinds"><b>2</b>Three kinds of example</a></li>
+      <li><a href="#encode"><b>3</b>What the model is graded on</a></li>
+      <li><a href="#lora"><b>4</b>LoRA on a small GPU</a></li>
+      <li><a href="#run"><b>5</b>The training run</a></li>
+      <li><a href="#outcome"><b>6</b>What Phase 1 achieved</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="data">
+    <p class="num">1</p>
+    <h2>The training data</h2>
+    <p class="sub">480 problems, three examples each: 1,440 examples, all correct by construction.</p>
+    <p>A generator makes Blocksworld problems from a seed: a random start arrangement and a random goal. The same problem is also written in Mystery names. For each problem the A* planner finds the shortest plan, and the checker writes the explanations.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Set</th><th>Used for</th><th>Problems</th><th>How it is built</th></tr></thead>
+        <tbody>
+          <tr><td><b>D1</b></td><td>Phase 1</td><td>480</td><td>2 domains × 4 sizes (3–6 blocks) × 60 → 1,440 examples</td></tr>
+          <tr><td><b>D2</b></td><td>Phase 2</td><td>320</td><td>2 domains × 4 sizes × 40</td></tr>
+          <tr><td><b>Test</b></td><td>Evaluation only</td><td>200</td><td>2 domains × 4 sizes × 25</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Each set uses its own range of seeds (0, 100,000 and 200,000 apart), so no test problem can appear in training.</p>
+  </section>
+
+  <section class="field" id="kinds">
+    <p class="num">2</p>
+    <h2>Three kinds of example</h2>
+    <p class="sub">Two teach checking a plan. One teaches writing a plan in a checkable form.</p>
+    <div class="three">
+      <div class="card"><h3>Explain a correct plan</h3><p><span class="tag">480</span> Given the domain, the problem and the shortest plan, walk through every action and show why it works.</p></div>
+      <div class="card o"><h3>Find the error in a broken plan</h3><p><span class="tag">480</span> The correct plan is broken on purpose. Walk through it and name the exact fact that fails.</p></div>
+      <div class="card b"><h3>Plan step by step</h3><p><span class="tag">480</span> Only the domain and problem are given. Write the plan, checking each step, and end with a final plan line.</p></div>
+    </div>
+
+    <h3>How plans are broken</h3>
+    <p>The generator picks one of four changes at random and keeps trying (up to 50 times) until the checker rejects the result. It succeeded for all 480 problems.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Change</th><th>What it does</th><th>Example on the tower problem</th></tr></thead>
+        <tbody>
+          <tr><td>Drop</td><td>removes one step</td><td>(pick-up c), <s>(stack c a)</s>, (pick-up b) …</td></tr>
+          <tr><td>Swap</td><td>swaps two neighbouring steps</td><td>(stack c a) before (pick-up c)</td></tr>
+          <tr><td>Argument</td><td>changes one object</td><td>(attack <b>a</b>) instead of (attack b)</td></tr>
+          <tr><td>Truncate</td><td>cuts off the end</td><td>only the first two steps</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Real examples from the training file</h3>
+    <div class="buttons" role="group" aria-label="Choose an example">
+      <button type="button" data-ex="e1" aria-pressed="true">Broken plan, Blocksworld</button>
+      <button type="button" data-ex="e2" aria-pressed="false">Broken plan, Mystery</button>
+      <button type="button" data-ex="e3" aria-pressed="false">Plan step by step, Mystery</button>
+    </div>
+    <div class="pair">
+      <div><h3 style="margin-top:4px">Prompt (end part; the full domain comes first)</h3><pre class="code" id="exp"></pre></div>
+      <div><h3 style="margin-top:4px">Target: what the model learns to write</h3><pre class="code" id="ext"></pre></div>
+    </div>
+    <p id="exn" class="note"></p>
+  </section>
+
+  <section class="field" id="encode">
+    <p class="num">3</p>
+    <h2>What the model is graded on</h2>
+    <p class="sub">Only the answer. The prompt is hidden from the loss.</p>
+    <p>Each example is wrapped in the model's chat format (user turn: the prompt; assistant turn: the target) and turned into tokens. The prompt's labels are set to −100, which the loss ignores, so the model is never asked to memorise the domain text, which is the same in every example. An end-of-text token is added so it also learns where to stop.</p>
+<pre class="code">tokens: [ prompt tokens ................ ][ answer tokens ......... END ]
+labels: [ -100 -100 -100 ... -100        ][ answer tokens ......... END ]
+                ignored by the loss              graded, token by token</pre>
+    <p>The loss is cross-entropy: at each answer position, how much probability the model gave to the checker's next token. Examples average 1,261 tokens; the longest are cut at 3,072.</p>
+    <div class="key"><p><b>Why instruction tuning and not plain fine-tuning?</b> One model must do three jobs (explain, find errors, plan), and later a fourth (repair from feedback). The instruction at the top of each prompt says which job it is. And the target is written reasoning, not just a label or a plan, so the model can't take shortcuts, and in Phase 2 the checker can grade every step it writes.</p></div>
+  </section>
+
+  <section class="field" id="lora">
+    <p class="num">4</p>
+    <h2>LoRA: training 1.2% of the model</h2>
+    <p class="sub">Full fine-tuning needs over 20 GB of GPU memory. LoRA fits in 8 GB.</p>
+    <p>LoRA freezes all of the model's original weights and adds two small matrices beside each chosen layer. Only those are trained. The paper used full fine-tuning; this rebuild uses LoRA because of the laptop GPU.</p>
+<pre class="code">output = W_frozen · x  +  B · A · x        A: 16 × d,  B: d × 16  (rank 16)</pre>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Setting</th><th>This rebuild</th><th>Paper</th></tr></thead>
+        <tbody>
+          <tr><td>Model</td><td>Qwen2.5-1.5B-Instruct</td><td>larger models (e.g. Llama-3-8B)</td></tr>
+          <tr><td>Method</td><td>LoRA, rank 16, alpha 32, dropout 0.05, on all attention and MLP layers</td><td>full fine-tuning</td></tr>
+          <tr><td>Weights trained</td><td>18.5 million of 1,562 million (1.18%)</td><td>all</td></tr>
+          <tr><td>Learning rate</td><td>2e-4 (LoRA needs a higher rate), warm-up then cosine decay</td><td>2e-5</td></tr>
+          <tr><td>Batch</td><td>1 example × 16 accumulated = 16</td><td>16</td></tr>
+          <tr><td>Memory savers</td><td>bf16 weights, gradient checkpointing</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="field" id="run">
+    <p class="num">5</p>
+    <h2>The training run</h2>
+    <p class="sub">One pass over the 1,440 examples: 90 updates in 82 minutes.</p>
+    <div class="chart" data-chart='{"type":"line","label":"Phase 1 training loss by update step, falling from 0.57 at step 5 to 0.005 at step 90.","max":0.6,"ticks":[0,0.2,0.4,0.6],"xs":[5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90],"xEvery":3,"xName":"Step","xTitle":"update step (16 examples each)","series":[{"name":"Loss","color":"--s1","values":[0.5655,0.1916,0.0667,0.0277,0.0171,0.0172,0.0134,0.0106,0.0074,0.0082,0.0063,0.0065,0.0053,0.0051,0.0047,0.0067,0.0050,0.0047]}]}'>
+      <h3>Training loss</h3>
+    </div>
+    <p>The loss falls very fast because the format is rigid: once the rules are learned, the next token is almost always predictable. A loss of 0.005 means the model can reproduce the training answers nearly perfectly. It doesn't mean it can solve new problems; only the test can show that. The run saves a checkpoint every 20 updates and resumes automatically, so a laptop shutdown loses only minutes.</p>
+  </section>
+
+  <section class="field" id="outcome">
+    <p class="num">6</p>
+    <h2>What Phase 1 achieved</h2>
+    <p class="sub">From 0 to 28 of 200 unseen problems, and every error became a logic error.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>Base model</th><th>After Phase 1</th></tr></thead>
+        <tbody>
+          <tr><td>Blocksworld: valid plan, first try</td><td>0%</td><td><b>17%</b></td></tr>
+          <tr><td>Mystery: valid plan, first try</td><td>0%</td><td><b>11%</b></td></tr>
+          <tr><td>Answers with no readable plan</td><td>about half</td><td>none</td></tr>
+          <tr><td>Main error</td><td>wrong format or nonsense</td><td>a false precondition (160 of 172 wrong answers)</td></tr>
+          <tr><td>Fixed by one round of checker feedback</td><td>0</td><td>0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Every valid plan also had every intermediate state right. The last row is the important one: Phase 1 teaches the model to explain errors in a given plan, but not to repair its own plan when the checker points out a mistake. That is exactly what <a href="phase2.html">Phase 2</a> adds.</p>
+  </section>
+
+  <div class="next"><a href="play.html">← Try It</a><a href="phase2.html">Phase 2 →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · All numbers come from my own runs on an 8 GB laptop GPU.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script>
+(function () {
+  var EX = {
+    e1: { p: "[PROBLEM]\n(define (problem bw-3-3005)\n  (:domain blocksworld)\n  (:objects a b c)\n  (:init (handempty) (ontable b) (on c b) (clear c)\n         (ontable a) (clear a))\n  (:goal (and (on a c))))\n\n[PLAN]\n1. (stack a c)\n2. (pick-up a)\n\n[RESPONSE]",
+      t: "This plan is INVALID. Let me analyze each action:\n\n[Action 1: (stack a c)]\n- Preconditions: (clear c) (holding a)\n- Current state: (clear a) (clear c) (handempty) (on c b)\n  (ontable a) (ontable b)\n- VIOLATION: the precondition (holding a) is not true\n  in the current state\n\nThe remaining 1 action(s) cannot be evaluated because\naction 1 failed.",
+      n: "Broken by a swap: the correct plan is (pick-up a), (stack a c). The target names the exact missing fact and stops, because nothing after a failed step can be checked." },
+    e2: { p: "[PROBLEM]\n(define (problem bw-3-3000)\n  (:domain mystery)\n  (:objects a b c)\n  (:init (harmony) (planet a) (province a) (planet c)\n         (province c) (planet b) (province b))\n  (:goal (and (craves c a) (craves b c))))\n\n[PLAN]\n1. (attack c)\n2. (overcome c a)\n3. (attack a)\n4. (overcome b c)\n\n[RESPONSE]",
+      t: "This plan is INVALID. Let me analyze each action:\n\n[Action 1: (attack c)]\n- Preconditions: (harmony) (planet c) (province c)\n- Current state: (harmony) (planet a) (planet b) (planet c)\n  (province a) (province b) (province c)\n- All preconditions are satisfied\n- Effects: add (pain c); delete (harmony) (planet c) (province c)\n- Resulting state: (pain c) (planet a) (planet b) (province a)\n  (province b)\n[Action 2: (overcome c a)]\n- Preconditions: (pain c) (province a)\n- ...\n- Resulting state: (craves c a) (harmony) (planet a) (planet b)\n  (province b) (province c)\n[Action 3: (attack a)]\n- Preconditions: (harmony) (planet a) (province a)\n- Current state: (craves c a) (harmony) (planet a) (planet b)\n  (province b) (province c)\n- VIOLATION: the precondition (province a) is not true\n  in the current state\n\nThe remaining 1 action(s) cannot be evaluated because\naction 3 failed.",
+      n: "The tower problem in Mystery names, broken by changing one argument: step 3 should be (attack b). In real terms: “pick up a”, but c is already on a. The model must carry the state through two correct steps before it can see the error." },
+    e3: { p: "[PROBLEM]\n(define (problem bw-3-3040)\n  (:domain mystery)\n  (:objects a b c)\n  (:init (harmony) (planet b) (craves c b) (province c)\n         (planet a) (province a))\n  (:goal (and (craves c b) (craves a c))))\n\n[STEP BY STEP PLANNING]",
+      t: "Initial State Analysis:\nCurrent state: (craves c b) (harmony) (planet a) (planet b)\n  (province a) (province c)\nGoal: (craves a c) (craves c b)\n\n[Step 1: State s0 Action a1 State s1]\n- Proposed action a1: (attack a)\n- Precondition check: (province a) TRUE, (planet a) TRUE,\n  (harmony) TRUE\n- Effects: add (pain a); delete (harmony) (planet a) (province a)\n- Resulting state s1: (craves c b) (pain a) (planet b) (province c)\n\n[Step 2: State s1 Action a2 State s2]\n- Proposed action a2: (overcome a c)\n- Precondition check: (pain a) TRUE, (province c) TRUE\n- Effects: add (craves a c) (harmony) (province a);\n  delete (pain a) (province c)\n- Resulting state s2: (craves a c) (craves c b) (harmony)\n  (planet b) (province a)\n\n[GOAL CHECK] (craves c b) TRUE, (craves a c) TRUE. Goal is ACHIEVED.\n[FINAL PLAN] (attack a), (overcome a c)",
+      n: "No plan is given: the model writes it. In real terms, pick up a and stack it on c, the shortest plan (from A*). The [FINAL PLAN] line at the end is what the test reads." }
+  };
+  var btns = document.querySelectorAll("[data-ex]");
+  function pick(k) {
+    btns.forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-ex") === k ? "true" : "false"); });
+    document.getElementById("exp").textContent = EX[k].p;
+    document.getElementById("ext").textContent = EX[k].t;
+    document.getElementById("exn").textContent = EX[k].n;
+  }
+  btns.forEach(function (b) { b.addEventListener("click", function () { pick(b.getAttribute("data-ex")); }); });
+  pick("e1");
+})();
+</script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

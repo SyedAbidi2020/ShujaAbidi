@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exact Solvers</title>
+<meta name="description" content="Classical planners such as A* and Fast Downward solve any complete PDDL problem exactly. This page explains how they work, where they stop working, and why neural-symbolic methods like PDDL-INSTRUCT are needed.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html" aria-current="page">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Classical planning</p>
+    <h1>Exact solvers: perfect inside PDDL, stuck outside it</h1>
+    <p class="lead">Classical planners like A* and Fast Downward solve any problem written in PDDL, exactly and fast. So why train a language model to plan at all? Because real tasks rarely arrive as clean PDDL. This page explains what exact solvers do, where they stop working, and why a neural-symbolic approach such as PDDL-INSTRUCT is needed.</p>
+    <ul class="contents">
+      <li><a href="#planners"><b>1</b>The exact solvers</a></li>
+      <li><a href="#astar"><b>2</b>How A* solves a problem</a></li>
+      <li><a href="#test"><b>3</b>A* on our test set</a></li>
+      <li><a href="#fails"><b>4</b>Where classical planning fails</a></li>
+      <li><a href="#neuro"><b>5</b>Why neural-symbolic</a></li>
+      <li><a href="#honest"><b>6</b>The honest summary</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="planners">
+    <p class="num">1</p>
+    <h2>The exact solvers</h2>
+    <p class="sub">Decades of research, used as the ground truth in every planning benchmark.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Planner</th><th>Kind</th><th>What it is known for</th></tr></thead>
+        <tbody>
+          <tr><td><b>A*</b></td><td>optimal search</td><td>The textbook method: search states, guided by an estimate of the distance to the goal. Used in this project to make the training plans.</td></tr>
+          <tr><td><b>Fast Downward</b></td><td>planning framework</td><td>The standard research planner, with many search methods and heuristics. PlanBench uses it for optimal plans.</td></tr>
+          <tr><td><b>LAMA</b></td><td>fast, not always shortest</td><td>A Fast Downward configuration built on landmarks (facts that must become true on the way). It won planning-competition tracks.</td></tr>
+          <tr><td><b>FF (Fast-Forward)</b></td><td>fast, not always shortest</td><td>Estimates distance by solving a relaxed problem that ignores delete effects.</td></tr>
+          <tr><td><b>Pyperplan</b></td><td>teaching</td><td>Small and pure Python; easy to install and read.</td></tr>
+          <tr><td><b>VAL</b></td><td>validator</td><td>Doesn't plan; checks plans. The model for this project's checker.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="key" style="margin-top:14px"><p><b>Their promise:</b> give them a complete domain, an initial state and a goal in PDDL, and they return a plan that is guaranteed valid (and, with an optimal planner, guaranteed shortest), or prove that none exists.</p></div>
+  </section>
+
+  <section class="field" id="astar">
+    <p class="num">2</p>
+    <h2>How A* solves a problem</h2>
+    <p class="sub">Try actions, keep the most promising states first, stop at the goal.</p>
+    <p>Problem bw-3-3005: c is on b, a is on the table, goal <code>(on a c)</code>. A* keeps a queue of states ordered by <b>f = g + h</b>: <b>g</b> is the number of steps so far, <b>h</b> the number of goal facts still false. Because every missing <code>(on x y)</code> needs at least one <code>stack</code>, h never overestimates, so the first plan A* finds is the shortest.</p>
+    <figure class="dg">
+      <svg class="wide" viewBox="0 0 980 270" role="img" aria-label="A star search tree. The start state has f equal 1. Two actions are legal: pick-up a and unstack c b, both giving f equal 2. From holding a, stack a c reaches the goal with f equal 2. From holding c, all children have f equal 3, so they are never needed. The plan is pick-up a, stack a c.">
+        <defs><marker id="s1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+        <rect class="bb" x="20" y="105" width="180" height="62" rx="9"/><text class="t" x="110" y="130" text-anchor="middle">start s0</text><text class="m" x="110" y="150" text-anchor="middle">g 0 · h 1 · f 1</text>
+        <rect class="ba" x="330" y="30" width="200" height="62" rx="9"/><text class="t" x="430" y="55" text-anchor="middle">s1: holding a</text><text class="m" x="430" y="75" text-anchor="middle">g 1 · h 1 · f 2</text>
+        <rect class="bx" x="330" y="180" width="200" height="62" rx="9"/><text class="t" x="430" y="205" text-anchor="middle">s2: holding c</text><text class="m" x="430" y="225" text-anchor="middle">g 1 · h 1 · f 2</text>
+        <rect class="bg" x="680" y="30" width="200" height="62" rx="9"/><text class="t" x="780" y="55" text-anchor="middle">s3: (on a c) ✔ goal</text><text class="m" x="780" y="75" text-anchor="middle">g 2 · h 0 · f 2</text>
+        <rect class="bx" x="680" y="180" width="200" height="62" rx="9" style="opacity:.55"/><text class="m" x="780" y="205" text-anchor="middle">children of s2</text><text class="m" x="780" y="225" text-anchor="middle">f 3 · never needed</text>
+        <path class="ar" d="M200 125 L328 70" marker-end="url(#s1)"/><text class="m" x="250" y="82">pick-up a</text>
+        <path class="ar" d="M200 148 L328 205" marker-end="url(#s1)"/><text class="m" x="236" y="198">unstack c b</text>
+        <path class="ar" d="M530 61 H678" marker-end="url(#s1)"/><text class="m" x="604" y="52" text-anchor="middle">stack a c</text>
+        <path class="fb" d="M530 211 H678" marker-end="url(#s1)"/>
+        <text class="m" x="20" y="262">Illegal actions are never tried: pick-up b fails (clear b is false), pick-up c fails (ontable c is false).</text>
+      </svg>
+      <figcaption>The plan found: (pick-up a), (stack a c). A* tests the same preconditions the checker does, but it uses them to search, not to explain.</figcaption>
+    </figure>
+  </section>
+
+  <section class="field" id="test">
+    <p class="num">3</p>
+    <h2>A* on our 200 test problems</h2>
+    <p class="sub">The same problems the trained language model was tested on.</p>
+    <div class="big">
+      <div><b>200 / 200</b><span>solved by A*, every plan valid and shortest</span></div>
+      <div><b>≈ 13 s</b><span>for all 200, on a normal CPU (including making the problems)</span></div>
+      <div><b>71 / 200</b><span>solved by the trained language model after 3 rounds of feedback</span></div>
+      <div><b>0 %</b><span>difference for A* between Blocksworld and Mystery names</span></div>
+    </div>
+    <p>On problems that are already written in PDDL, the exact solver wins on every measure: correctness, plan length, speed, hardware, and immunity to meaningless names. If the job is "complete PDDL in, plan out", use a classical planner.</p>
+  </section>
+
+  <section class="field" id="fails">
+    <p class="num">4</p>
+    <h2>Where classical planning fails</h2>
+    <p class="sub">Not on hard PDDL problems, but on everything that has to happen before there is any PDDL.</p>
+    <p>An exact solver needs three things handed to it, all exact: the <b>rules</b>, the <b>initial state</b> and the <b>goal</b>. In real use, especially for robots working with people, at least one is usually missing or wrong.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Situation</th><th>Example</th><th>Classical planner</th></tr></thead>
+        <tbody>
+          <tr><td><b>Goal given in words</b></td><td>"Tidy the meeting room before 3 pm."</td><td>Can't start: "tidy" is not a PDDL fact. Someone must decide that cups go to the kitchen and the laptop stays.</td></tr>
+          <tr><td><b>Rules incomplete</b></td><td>The domain forgot that the robot needs a free hand to open a door.</td><td>Plans "carry cup, open door". Legal in the file, impossible in reality. It can't notice, because it only knows the file.</td></tr>
+          <tr><td><b>New objects or skills</b></td><td>A tray appears that carries four cups at once.</td><td>No action for it in the domain, so it can never use it.</td></tr>
+          <tr><td><b>State from sensors</b></td><td>The camera says "probably a cup, maybe a bowl".</td><td>Needs exact true/false facts; uncertain or missing facts break the model.</td></tr>
+          <tr><td><b>A person asks why</b></td><td>"Why are you moving the box first?"</td><td>Gives only a list of actions, no explanation in words.</td></tr>
+          <tr><td><b>Very large problems</b></td><td>Hundreds of objects and actions.</td><td>The number of states explodes (with 6 blocks there are already 7,057). Modern planners go far, but search can still become slow.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:14px"><b>Important:</b> a classical planner does not fail on <i>unseen PDDL problems</i>. Give it any new problem in a known domain and it solves it. It fails on <i>unseen situations that nobody has written as PDDL</i>. That is the gap neural methods are meant to fill.</div>
+  </section>
+
+  <section class="field" id="neuro">
+    <p class="num">5</p>
+    <h2>Why neural-symbolic</h2>
+    <p class="sub">A neural network for what is fuzzy, symbolic rules for what must be exact.</p>
+    <div class="two">
+      <div class="card o"><h3>Neural (language model)</h3><ul><li>understands everyday language</li><li>brings common sense when rules are missing</li><li>handles new objects and situations</li><li>explains its reasoning in words</li><li><b>but</b> makes confident mistakes</li></ul></div>
+      <div class="card"><h3>Symbolic (planner, checker)</h3><ul><li>exact and guaranteed correct</li><li>fast on complete problems</li><li>never fooled by names</li><li>checks every step</li><li><b>but</b> needs everything written in PDDL first</li></ul></div>
+    </div>
+    <p>Each side covers the other's weakness. PDDL-INSTRUCT combines them in two ways: the symbolic checker <b>teaches</b> the neural model (it writes the training reasoning and grades the model's plans), and the model learns to <b>reason like the checker</b>, stating every precondition, effect and state so that its plans can be verified.</p>
+    <figure class="dg">
+      <svg class="wide" viewBox="0 0 1000 220" role="img" aria-label="Neural-symbolic loop for a robot. A person's words go to the language model, which writes goal facts and a plan with step-by-step reasoning. The symbolic checker verifies each step against the rules. If a step fails, precise feedback goes back to the language model to repair the plan. When the plan passes, the robot acts and the explanation is given to the person.">
+        <defs><marker id="s2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+        <rect class="bb" x="10" y="70" width="170" height="74" rx="9"/><text class="t" x="95" y="100" text-anchor="middle">Person</text><text class="m" x="95" y="120" text-anchor="middle">"tidy the room"</text>
+        <rect class="bo" x="240" y="60" width="230" height="94" rx="9"/><text class="lab co" x="355" y="50" text-anchor="middle">NEURAL</text><text class="t" x="355" y="88" text-anchor="middle">Language model</text><text class="m" x="355" y="108" text-anchor="middle">goal facts + plan with</text><text class="m" x="355" y="125" text-anchor="middle">step-by-step reasoning</text>
+        <rect class="ba" x="530" y="60" width="210" height="94" rx="9"/><text class="lab ca" x="635" y="50" text-anchor="middle">SYMBOLIC</text><text class="t" x="635" y="88" text-anchor="middle">Checker / planner</text><text class="m" x="635" y="108" text-anchor="middle">every precondition,</text><text class="m" x="635" y="125" text-anchor="middle">effect, state, goal</text>
+        <rect class="bg" x="800" y="70" width="190" height="74" rx="9"/><text class="t" x="895" y="100" text-anchor="middle">Robot acts</text><text class="m" x="895" y="120" text-anchor="middle">+ explains why</text>
+        <path class="ar" d="M180 107 H238" marker-end="url(#s2)"/><path class="ar" d="M470 107 H528" marker-end="url(#s2)"/><path class="ar" d="M740 107 H798" marker-end="url(#s2)"/><text class="m" x="769" y="98" text-anchor="middle">valid</text>
+        <path class="fb" d="M635 154 V196 H355 V156" marker-end="url(#s2)"/><text class="m" x="495" y="190" text-anchor="middle">step fails → precise feedback → repair (Phase 2)</text>
+      </svg>
+      <figcaption>Nothing unverified reaches the robot. The language model brings understanding and explanation; the checker brings guarantees.</figcaption>
+    </figure>
+    <h3>Other neural-symbolic designs</h3>
+    <ul>
+      <li><b>LLM + planner ("LLM+P"):</b> the language model translates the task into PDDL; a classical planner solves it exactly.</li>
+      <li><b>LLM + checker ("LLM-Modulo"):</b> the language model proposes a plan, a checker verifies it, and feedback goes back until it passes.</li>
+      <li><b>PDDL-INSTRUCT:</b> the checker is also used during training, so the model itself learns to reason in a verifiable way.</li>
+    </ul>
+  </section>
+
+  <section class="field" id="honest">
+    <p class="num">6</p>
+    <h2>The honest summary</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Task</th><th>Best tool</th></tr></thead>
+        <tbody>
+          <tr><td>Complete PDDL in, plan out</td><td><b>Classical planner</b> (A*, Fast Downward, LAMA)</td></tr>
+          <tr><td>Checking a plan</td><td><b>Validator</b> (VAL, or this project's checker)</td></tr>
+          <tr><td>Turning a person's words into goals</td><td><b>Language model</b>, then check</td></tr>
+          <tr><td>Planning with incomplete rules, explaining to people</td><td><b>Neural-symbolic</b>: a model that reasons verifiably, with a checker in the loop</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="key" style="margin-top:14px"><p><b>Why this project uses Blocksworld at all:</b> not to beat A*, but because A* and the checker know the exact answer to every problem. That makes it a clean testbed to measure whether a language model can learn logical, checkable planning. Whether that skill carries over to everyday robot tasks is the next research question.</p></div>
+  </section>
+
+  <div class="next"><a href="planbench.html">← PlanBench</a><a href="play.html">Try It →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · The A* result was measured with this project's own planner on the 200 test problems.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

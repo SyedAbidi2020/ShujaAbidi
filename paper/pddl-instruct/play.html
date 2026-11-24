@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try the Checker</title>
+<meta name="description" content="An interactive Blocksworld: move blocks by clicking, write a plan, and see the exact step-by-step explanation the plan checker writes, in normal or Mystery names.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html" aria-current="page">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Interactive</p>
+    <h1>Be the planner, let the checker judge</h1>
+    <p class="lead">Move the blocks by clicking, or type a plan, then press <b>Check the plan</b>. The checker writes the same action-by-action explanation that the model was trained on. Try a wrong plan too, and switch to Mystery names to see how hard the logic is without familiar words.</p>
+  </section>
+
+  <div class="play" id="play">
+    <div class="row">
+      <label for="preset">Problem</label>
+      <select id="preset">
+        <option value="ex1">bw-3-3005: a onto c (2 steps)</option>
+        <option value="tower">bw-3-3000: build a tower (4 steps)</option>
+        <option value="four">4 blocks: needs unstack</option>
+        <option value="rand3">Random, 3 blocks</option>
+        <option value="rand4">Random, 4 blocks</option>
+        <option value="rand5">Random, 5 blocks</option>
+      </select>
+      <label for="names">Names</label>
+      <select id="names">
+        <option value="bw">Blocksworld</option>
+        <option value="mystery">Mystery</option>
+      </select>
+    </div>
+    <p id="note" style="margin:0 0 8px;font-size:15px"></p>
+    <p style="margin:0 0 8px;font-size:15px"><b>Goal:</b> <span id="goal" class="mono"></span></p>
+    <div class="world" id="world"></div>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <div class="row">
+      <button type="button" id="undo">Undo</button>
+      <button type="button" id="reset">Start again</button>
+      <button type="button" id="solve">Show the shortest plan</button>
+    </div>
+    <h3 style="margin:10px 0 2px;font-size:15.5px">True facts now</h3>
+    <div class="facts" id="facts"></div>
+    <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 12px"><span id="count"></span>. Green facts are part of the goal.</p>
+
+    <div class="pair">
+      <div>
+        <label for="plan">Plan (one action per line, edit freely)</label>
+        <textarea id="plan" spellcheck="false" placeholder="(pick-up a)&#10;(stack a c)"></textarea>
+        <div class="row" style="margin-top:8px"><button type="button" class="primary" id="check">Check the plan</button></div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 4px;font-size:15.5px">Problem file</h3>
+        <pre class="code" id="ptext" style="margin-top:0"></pre>
+      </div>
+    </div>
+    <h3 style="margin:6px 0 4px;font-size:15.5px">The checker's explanation</h3>
+    <pre class="code out" id="out" aria-live="polite"></pre>
+    <details class="tv"><summary>The rules (domain)</summary><pre class="code" id="rules"></pre></details>
+  </div>
+
+  <section class="field" style="margin-top:20px">
+    <h2>Things to try</h2>
+    <ul>
+      <li><b>Break the rules on purpose.</b> In the first problem, type <code>(stack a c)</code> alone and check it. The checker names the missing fact, <code>(holding a)</code>. A Phase 1 "broken plan" example looks exactly like this.</li>
+      <li><b>Stop early.</b> Check only <code>(pick-up a)</code>. Every step is legal, but the checker reports that the goal is not reached.</li>
+      <li><b>Switch to Mystery.</b> The same problem now reads <code>(attack a) (overcome a c)</code>. You can still solve it by reading the rules, which is exactly what the model has to learn.</li>
+      <li><b>Try 5 blocks.</b> There are 866 possible states. Notice how quickly it gets hard to keep the whole state in your head; small language models struggle at the same point.</li>
+    </ul>
+    <p>The shortest-plan button searches every reachable state (breadth-first search). Training data used the A* planner, which finds the same shortest plans faster.</p>
+  </section>
+
+  <div class="next"><a href="solvers.html">← Exact Solvers</a><a href="phase1.html">Phase 1 →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · The checker on this page follows the same rules and text format as the one used for training.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
