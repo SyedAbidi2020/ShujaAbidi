@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planning Results</title>
+<meta name="description" content="Results of the PDDL-INSTRUCT rebuild on 200 unseen Blocksworld and Mystery problems: 0 to 71 solved, with the comparison to the paper and the limits of the study.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html" aria-current="page">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Results</p>
+    <h1>From 0 to 71 of 200</h1>
+    <p class="lead">Every number below comes from 200 test problems the model never saw in training (100 Blocksworld, 100 Mystery, 3–6 blocks), graded by the exact checker. A plan counts only if every step is legal and the goal is reached.</p>
+    <ul class="contents">
+      <li><a href="#main"><b>1</b>Main results</a></li>
+      <li><a href="#rounds"><b>2</b>Feedback rounds</a></li>
+      <li><a href="#errors"><b>3</b>What goes wrong</a></li>
+      <li><a href="#paper"><b>4</b>Compared with the paper</a></li>
+      <li><a href="#limits"><b>5</b>Limits</a></li>
+      <li><a href="#next"><b>6</b>Next steps</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="main">
+    <p class="num">1</p>
+    <h2>Main results</h2>
+    <p class="sub">Each phase adds something the previous one couldn't do.</p>
+    <div class="chart" data-chart='{"type":"bar","label":"Valid plans out of 100 per domain at each stage. Blocksworld: 0, 17, 24, 47, 45. Mystery: 0, 11, 7, 19, 26.","max":60,"ticks":[0,20,40,60],"unit":"%","groups":["Base model","Phase 1","Phase 2|first try","Phase 2|3 feedback rounds","Phase 2|+ sampling"],"notes":["no training","first try; feedback fixed none","first try","greedy decoding","sampling in rounds 2–3"],"series":[{"name":"Blocksworld","color":"--s1","values":[0,17,24,47,45]},{"name":"Mystery","color":"--s2","values":[0,11,7,19,26]}]}'>
+      <h3>Valid plans on the test set</h3>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Stage</th><th>Blocksworld</th><th>Mystery</th><th>Total solved (of 200)</th></tr></thead>
+        <tbody>
+          <tr><td>Base model (Qwen2.5-1.5B-Instruct)</td><td>0%</td><td>0%</td><td>0</td></tr>
+          <tr><td>Phase 1, first try</td><td>17%</td><td>11%</td><td>28</td></tr>
+          <tr><td>Phase 1 + 1 feedback round</td><td>17%</td><td>11%</td><td>28</td></tr>
+          <tr><td>Phase 2, first try</td><td>24%</td><td>7%</td><td>31</td></tr>
+          <tr><td>Phase 2 + 3 feedback rounds (greedy)</td><td>47%</td><td>19%</td><td><b>66</b></td></tr>
+          <tr><td>Phase 2 + 3 feedback rounds (sampling in rounds 2–3)</td><td>45%</td><td>26%</td><td><b>71</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul style="margin-top:14px">
+      <li><b>Phase 1</b> took the model from nothing to a working format: no unreadable answers, and every error a real logic error.</li>
+      <li><b>Phase 2</b> taught it to use the checker's feedback. After Phase 1, feedback fixed no plans; after Phase 2, the first round alone fixed 22.</li>
+      <li><b>Mystery</b> stays harder. Its first-try score fell slightly in Phase 2 (11% → 7%), but feedback rounds and sampling bring it to 26%.</li>
+    </ul>
+  </section>
+
+  <section class="field" id="rounds">
+    <p class="num">2</p>
+    <h2>Feedback rounds: greedy vs sampling</h2>
+    <p class="sub">Sampling helps when the model gets stuck repeating the same wrong plan.</p>
+    <div class="chart" data-chart='{"type":"line","label":"Total solved of 200 after 0 to 3 feedback rounds. Greedy: 31, 53, 60, 66. Sampling in rounds 2 and 3: 31, 53, 61, 71.","max":80,"ticks":[0,20,40,60,80],"xs":["first try","1","2","3"],"xName":"Feedback rounds:","xTitle":"feedback rounds","endLabels":true,"series":[{"name":"Greedy","color":"--s1","values":[31,53,60,66],"dy":6},{"name":"Sampling","color":"--s2","values":[31,53,61,71],"dy":-4}]}'>
+      <h3>Total solved (of 200) after each feedback round</h3>
+    </div>
+    <p>With greedy decoding the model always picks its most likely next word, so given the same feedback it often writes the same wrong plan again: 59 of the round-3 answers were exact repeats. Sampling (temperature 0.7, top-p 0.95) in rounds 2 and 3 lets it try something different. Rounds 0 and 1 are identical in both runs. This is one run with one random seed, so a difference of a few problems is within noise.</p>
+  </section>
+
+  <section class="field" id="errors">
+    <p class="num">3</p>
+    <h2>What goes wrong</h2>
+    <p class="sub">Almost every failure is a false precondition: the model loses track of the state.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>First-try errors</th><th>Base model</th><th>After Phase 1</th></tr></thead>
+        <tbody>
+          <tr><td>No readable plan</td><td>about 50%</td><td>0</td></tr>
+          <tr><td>Legal steps before the first error (average)</td><td>0.2</td><td>about 3 (Blocksworld)</td></tr>
+          <tr><td>False precondition (Blocksworld / Mystery)</td><td>—</td><td>73 / 87</td></tr>
+          <tr><td>Goal not reached (Blocksworld / Mystery)</td><td>—</td><td>10 / 2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="chart" data-chart='{"type":"bar","label":"Phase 2 solved out of 50 test problems per size. First try: 3 blocks 12, 4 blocks 9, 5 blocks 8, 6 blocks 2. After 3 feedback rounds: 25, 19, 15, 7.","max":30,"ticks":[0,10,20,30],"suffix":" of 50 solved","groups":["3 blocks","4 blocks","5 blocks","6 blocks"],"series":[{"name":"First try","color":"--s1","values":[12,9,8,2]},{"name":"After 3 feedback rounds","color":"--s2","values":[25,19,15,7]}]}'>
+      <h3>Solved by problem size (Phase 2, greedy, 50 problems per size)</h3>
+    </div>
+    <p>Bigger problems are much harder: half of the 3-block problems are solved after feedback, but only 7 of 50 with 6 blocks. A 6-block plan means carrying a longer list of facts through more steps, and one wrong fact early on breaks everything after it. This is exactly the error the checker can point to, which is why feedback helps at every size.</p>
+  </section>
+
+  <section class="field" id="paper">
+    <p class="num">4</p>
+    <h2>Compared with the paper</h2>
+    <p class="sub">Same idea, much smaller model and budget, so lower numbers are expected.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>Paper (Llama-3-8B)</th><th>This rebuild (Qwen 1.5B)</th></tr></thead>
+        <tbody>
+          <tr><td>Blocksworld</td><td>28% → 94%</td><td>0% → 47% (45% with sampling)</td></tr>
+          <tr><td>Mystery Blocksworld</td><td>1% → 64%</td><td>0% → 19% (26% with sampling)</td></tr>
+          <tr><td>Logistics</td><td>11% → 79%</td><td>not run yet</td></tr>
+          <tr><td>Model size</td><td>8 billion parameters</td><td>1.5 billion</td></tr>
+          <tr><td>Training</td><td>full fine-tuning</td><td>LoRA, 1.2% of weights</td></tr>
+          <tr><td>Hardware</td><td>multiple desktop GPUs</td><td>one 8 GB laptop GPU</td></tr>
+          <tr><td>Test problems</td><td>PlanBench instances</td><td>own generator, 3–6 blocks, 200 problems</td></tr>
+          <tr><td>Code</td><td>not released</td><td>written from scratch</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">The rebuild confirms the paper's two main claims on a much smaller model: checker-written reasoning examples make a model that couldn't plan at all produce valid plans, and training with checker feedback teaches it to repair its own plans. While rebuilding it I also found points in the paper that can't be reproduced as written, such as the state-difference loss (not differentiable) and fine-tuning GPT-4 with custom losses (not possible through its API).</p>
+  </section>
+
+  <section class="field" id="limits">
+    <p class="num">5</p>
+    <h2>Limits of this rebuild</h2>
+    <ul>
+      <li><b>One run, one seed.</b> Differences of a few problems (for example 45% vs 47%) are within noise. More seeds are needed before strong claims.</li>
+      <li><b>Small model, LoRA.</b> The paper's full fine-tuning of an 8B model would likely score higher. LoRA was chosen to fit an 8 GB GPU, and the two weren't compared directly.</li>
+      <li><b>Own problems, not PlanBench files.</b> The domains and the Mystery renaming match PlanBench, but the problems come from my own generator, so the numbers aren't directly comparable with published PlanBench scores.</li>
+      <li><b>Only two domains.</b> Logistics, the paper's third domain, is not done yet.</li>
+      <li><b>Practical losses.</b> Phase 2 uses ordinary token loss with an extra plan-only copy, not the paper's state-difference loss.</li>
+      <li><b>Long answers cut.</b> A few of the longest 6-block training examples were cut at 3,072 tokens.</li>
+    </ul>
+  </section>
+
+  <section class="field" id="next">
+    <p class="num">6</p>
+    <h2>Next steps</h2>
+    <ul>
+      <li><b>Best of k:</b> let the model write several plans per round and let the checker pick a valid one.</li>
+      <li><b>More seeds</b> and confidence intervals for every number.</li>
+      <li><b>More Mystery data</b> and several updates per Phase 2 iteration.</li>
+      <li><b>A larger model</b> (7–8B) on a desktop GPU, to compare with the paper directly.</li>
+      <li><b>Logistics</b>, and then robot tasks: plans for a robot in a simulated office, checked before the robot moves.</li>
+    </ul>
+  </section>
+
+  <div class="next"><a href="phase2.html">← Phase 2</a><a href="index.html">Overview →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · All numbers come from my own runs on an 8 GB laptop GPU.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

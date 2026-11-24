@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The PlanBench Dataset</title>
+<meta name="description" content="PlanBench explained: the standard benchmark for planning in language models. Its domains, how many instances and prompts it has, its eight test cases, the file and prompt format, and headline results.">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="index.html">Planning · Shuja Abidi</a>
+  <nav class="menu" aria-label="Main menu">
+    <a href="index.html">Overview</a>
+    <a href="pddl.html">PDDL Basics</a>
+    <a href="planbench.html" aria-current="page">PlanBench</a>
+    <a href="solvers.html">Exact Solvers</a>
+    <a href="play.html">Try It</a>
+    <a href="phase1.html">Phase 1</a>
+    <a href="phase2.html">Phase 2</a>
+    <a href="results.html">Results</a>
+  </nav>
+</div></div>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Dataset</p>
+    <h1>PlanBench: the standard test of planning in language models</h1>
+    <p class="lead">PlanBench is a public benchmark that asks a language model to plan, and checks every answer with a real plan validator. It is the benchmark PDDL-INSTRUCT reports on, and the source of the Blocksworld and Mystery domains used on this site.</p>
+    <ul class="contents">
+      <li><a href="#what"><b>1</b>What it is</a></li>
+      <li><a href="#size"><b>2</b>How much data</a></li>
+      <li><a href="#tasks"><b>3</b>Eight test cases</a></li>
+      <li><a href="#format"><b>4</b>The format</a></li>
+      <li><a href="#mystery"><b>5</b>Mystery: hiding the meaning</a></li>
+      <li><a href="#results"><b>6</b>How models score</a></li>
+      <li><a href="#here"><b>7</b>How this project uses it</a></li>
+    </ul>
+  </section>
+
+  <section class="field" id="what">
+    <p class="num">1</p>
+    <h2>What it is</h2>
+    <p class="sub">A benchmark built from classic planning-competition domains, graded automatically.</p>
+    <div class="cols">
+      <div>
+        <p>PlanBench was created by Karthik Valmeekam, Matthew Marquez, Alberto Olmo, Sarath Sreedharan and Subbarao Kambhampati (Arizona State University). It was published in the NeurIPS 2023 Datasets and Benchmarks track (<a href="https://arxiv.org/abs/2206.10498">arXiv 2206.10498</a>), and its code and data are open on <a href="https://github.com/karthikv792/LLMs-Planning">GitHub</a>.</p>
+        <p>Its point is simple: many papers claimed language models could plan, but tested them on everyday tasks where a plausible-sounding answer is hard to grade. PlanBench uses domains from the International Planning Competition, written in PDDL, so every plan can be checked exactly by a validator. Nothing is graded by eye.</p>
+      </div>
+      <div class="panel">
+        <h3>In one box</h3>
+        <ul>
+          <li><b>Domains:</b> Blocksworld, Logistics, their "Mystery" versions; Depots added later</li>
+          <li><b>Instances:</b> 600 Blocksworld, 285 Logistics</li>
+          <li><b>Prompts:</b> about 26,250 across all test cases and domains</li>
+          <li><b>Test cases:</b> 8, from plan generation to replanning</li>
+          <li><b>Grading:</b> the VAL plan validator; optimal plans from the Fast Downward planner</li>
+          <li><b>Licence:</b> MIT (code repository)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="field" id="size">
+    <p class="num">2</p>
+    <h2>How much data</h2>
+    <p class="sub">Hundreds of problems per domain, turned into thousands of prompts.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Domain</th><th>Instances</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td><b>Blocksworld</b></td><td>600</td><td>stack and unstack blocks with one hand; problems vary in the number of blocks and in the length of the shortest plan</td></tr>
+          <tr><td>Blocksworld, plan generalization set</td><td>500</td><td>a separate set used only for the generalization test</td></tr>
+          <tr><td><b>Mystery Blocksworld</b> (deceptive)</td><td>600</td><td>Blocksworld with every action, fact and object renamed with misleading words</td></tr>
+          <tr><td><b>Mystery Blocksworld</b> (randomized)</td><td>600</td><td>the same, renamed with random letters and numbers</td></tr>
+          <tr><td><b>Logistics</b></td><td>285</td><td>move packages between cities with trucks and planes</td></tr>
+          <tr><td>Obfuscated Logistics</td><td>—</td><td>Logistics with deceptive or random names</td></tr>
+          <tr><td>Depots</td><td>—</td><td>added to the repository after the paper; usable for every test case except generalization</td></tr>
+          <tr><td>Blocksworld Hard (PDDL)</td><td>110</td><td>larger problems, used in the repository's leaderboard</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="big" style="margin-top:18px">
+      <div><b>600</b><span>Blocksworld instances</span></div>
+      <div><b>285</b><span>Logistics instances</span></div>
+      <div><b>~26,250</b><span>prompts in total (paper)</span></div>
+      <div><b>11,113</b><span>rows in the Hugging Face copy</span></div>
+    </div>
+    <p>One instance becomes many prompts: each of the eight test cases asks something different about the same problem, and each domain also has its Mystery versions. A ready-to-use copy is on Hugging Face as <a href="https://huggingface.co/datasets/tasksource/planbench">tasksource/planbench</a>: 11,113 rows in 7 subsets (plan generation, optimality, verification, generalization, execution, and two goal-reformulation tasks), with the fields <code>task</code>, <code>prompt_type</code>, <code>domain</code>, <code>instance_id</code>, <code>example_instance_ids</code>, <code>query</code> and <code>ground_truth_plan</code>.</p>
+  </section>
+
+  <section class="field" id="tasks">
+    <p class="num">3</p>
+    <h2>Eight test cases</h2>
+    <p class="sub">Not only "make a plan": also check, predict, reuse and repair plans.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>#</th><th>Test case</th><th>The question it asks</th><th>Blocksworld prompts</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>Plan generation</b></td><td>Write a valid plan that reaches the goal.</td><td>600</td></tr>
+          <tr><td>2</td><td>Cost-optimal planning</td><td>Write the shortest (cheapest) valid plan.</td><td>600</td></tr>
+          <tr><td>3</td><td><b>Plan verification</b></td><td>Will this plan work? If not, which action fails and why?</td><td>600</td></tr>
+          <tr><td>4</td><td>Reasoning about plan execution</td><td>What is the state after these actions?</td><td>600</td></tr>
+          <tr><td>5</td><td>Robustness to goal reformulation</td><td>Recognise the same goal written differently (reordered, or stated fully vs partly).</td><td>600 each</td></tr>
+          <tr><td>6</td><td>Plan reuse</td><td>Use part of a plan you have already seen.</td><td>600</td></tr>
+          <tr><td>7</td><td>Replanning</td><td>Something unexpected changed the state; make a new plan.</td><td>600</td></tr>
+          <tr><td>8</td><td>Plan generalization</td><td>Spot the pattern in example plans and apply it to a new problem.</td><td>500</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="key" style="margin-top:14px"><p><b>Link to PDDL-INSTRUCT:</b> its Phase 1 practises <b>plan verification</b> (test case 3: explain why each action is valid or not) and <b>execution reasoning</b> (test case 4: track the state), and is evaluated on <b>plan generation</b> (test case 1).</p></div>
+  </section>
+
+  <section class="field" id="format">
+    <p class="num">4</p>
+    <h2>The format</h2>
+    <p class="sub">PDDL files underneath, natural-language prompts on top, PDDL plans for grading.</p>
+
+    <h3>Files in the repository</h3>
+<pre class="code">plan-bench/
+  instances/
+    blocksworld/
+      generated_domain.pddl        <span class="cm">domain "blocksworld-4ops": pick-up, put-down, stack, unstack</span>
+      generated/instance-1.pddl    <span class="cm">one problem per file: instance-1, instance-2, ...</span>
+      mystery/generated_domain.pddl  <span class="cm">domain "mystery-4ops": attack, succumb, overcome, feast</span>
+    logistics/  depots/  obfuscated_deceptive_logistics/  obfuscated_randomized_logistics/
+  prompts/
+    blocksworld/task_1_plan_generation.json ... task_8_3_partial_to_full.json
+    mystery_blocksworld/   logistics/   depots/   ...</pre>
+
+    <h3>A problem file</h3>
+    <p>Each instance is an ordinary PDDL problem: objects (blocks named by letters), the initial facts and the goal facts. For example, the first generalization instance starts with eight blocks all on the table and asks for one tall tower.</p>
+
+    <h3>A prompt (plan generation, one-shot)</h3>
+    <p>The model never sees PDDL in the standard setting. The domain is described in plain English, blocks get colour names, and one solved example comes before the real question. Shortened, with the structure kept:</p>
+<pre class="code"><span class="cm">1. Domain in words</span>
+I am playing with a set of blocks ... Here are the actions I can do:
+  Pick up a block · Unstack a block from on top of another block
+  Put down a block · Stack a block on top of another block
+I have the following restrictions on my actions:
+  I can only pick up or unstack one block at a time. ...   <span class="cm">(11 rules)</span>
+
+<span class="cm">2. One solved example</span>
+[STATEMENT]
+As initial conditions I have that, ... My goal is to have that ...
+My plan is as follows:
+[PLAN]
+unstack the blue block from on top of the orange block
+...
+[PLAN END]
+
+<span class="cm">3. The real question</span>
+[STATEMENT]
+As initial conditions I have that, ... My goal is to have that ...
+My plan is as follows:
+[PLAN]                                  <span class="cm">← the model continues from here</span></pre>
+
+    <h3>The stored answer and how it is graded</h3>
+    <div class="pair">
+      <div>
+<pre class="code"><span class="cm">ground_truth_plan</span>
+(unstack yellow orange)
+(put-down yellow)
+(pick-up orange)
+(stack orange red)</pre>
+      </div>
+      <ol class="steps">
+        <li>The model writes one action per line in English.</li>
+        <li>A template-based translator turns each line into a PDDL action.</li>
+        <li>The VAL validator runs the plan from the initial state and checks every precondition and the goal.</li>
+        <li>For cost-optimal planning, the plan length is also compared with the optimal plan from Fast Downward.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="field" id="mystery">
+    <p class="num">5</p>
+    <h2>Mystery: hiding the meaning</h2>
+    <p class="sub">If a model really reasons, renaming the words shouldn't matter. It matters a lot.</p>
+    <p>Mystery Blocksworld keeps the rules exactly but renames everything. In the deceptive version the new words are real words with misleading meanings; in the randomized version they are random strings. The deceptive Blocksworld domain in the repository (named <code>mystery-4ops</code>) uses:</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Blocksworld</th><th>pick-up</th><th>put-down</th><th>stack</th><th>unstack</th><th>ontable</th><th>on</th><th>clear</th><th>handempty</th><th>holding</th></tr></thead>
+        <tbody><tr><td><b>Mystery</b></td><td>attack</td><td>succumb</td><td>overcome</td><td>feast</td><td>planet</td><td>craves</td><td>province</td><td>harmony</td><td>pain</td></tr></tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">This is the same renaming used on this site. Logistics has its own deceptive words.</p>
+  </section>
+
+  <section class="field" id="results">
+    <p class="num">6</p>
+    <h2>How models score</h2>
+    <p class="sub">Large models manage some Blocksworld problems; almost none solve Mystery, unless they are reasoning models.</p>
+    <h3>From the paper (Blocksworld, one-shot)</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Test case</th><th>GPT-4</th><th>InstructGPT-3</th></tr></thead>
+        <tbody>
+          <tr><td>Plan generation</td><td>206 / 600 (34.3%)</td><td>41 / 600 (6.8%)</td></tr>
+          <tr><td>Cost-optimal planning</td><td>198 / 600 (33%)</td><td>35 / 600 (5.8%)</td></tr>
+          <tr><td>Plan verification</td><td>352 / 600 (58.6%)</td><td>72 / 600 (12%)</td></tr>
+          <tr><td>Reasoning about execution</td><td>191 / 600 (31.8%)</td><td>4 / 600 (0.6%)</td></tr>
+          <tr><td>Replanning</td><td>289 / 600 (48.1%)</td><td>40 / 600 (6.6%)</td></tr>
+          <tr><td>Plan generalization</td><td>141 / 500 (28.2%)</td><td>49 / 500 (9.8%)</td></tr>
+          <tr><td>Plan reuse</td><td>392 / 600 (65.3%)</td><td>102 / 600 (17%)</td></tr>
+          <tr><td>Plan generation, Mystery (deceptive)</td><td>26 / 600 (4.3%)</td><td>14 / 600 (2.3%)</td></tr>
+          <tr><td>Plan generation, Mystery (randomized)</td><td>12 / 600 (2%)</td><td>6 / 600 (1%)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart" data-chart='{"type":"bar","label":"PlanBench plan generation, zero-shot, from the repository leaderboard. Blocksworld and Mystery: GPT-4 34.6 and 0; GPT-4o 35.5 and 0; Claude 3.5 Sonnet 54.8 and 0; Claude 3 Opus 59.3 and 0; LLaMA 3.1 405B 62.6 and 0.8; o1-mini 56.6 and 19.1; o1-preview 97.8 and 52.8; DeepSeek R1 99.1 and 43.3.","max":100,"ticks":[0,25,50,75,100],"unit":"%","height":300,"groups":["GPT-4","GPT-4o","Claude|3.5 Sonnet","Claude|3 Opus","LLaMA 3.1|405B","o1-mini","o1-preview","DeepSeek|R1"],"notes":["","","","","","reasoning model","reasoning model","reasoning model"],"series":[{"name":"Blocksworld","color":"--s1","values":[34.6,35.5,54.8,59.3,62.6,56.6,97.8,99.1]},{"name":"Mystery","color":"--s2","values":[0,0,0,0,0.8,19.1,52.8,43.3]}]}'>
+      <h3>Plan generation, zero-shot (repository leaderboard, 600 problems each)</h3>
+    </div>
+    <p>Ordinary language models score 0–1% on Mystery even when they reach 35–63% on Blocksworld: they lean on what the words usually mean. Reasoning models that "think" at length before answering do much better, but still lose a lot when the words are hidden. Leaderboard numbers are zero-shot, so they differ slightly from the paper's one-shot table.</p>
+  </section>
+
+  <section class="field" id="here">
+    <p class="num">7</p>
+    <h2>How this project uses PlanBench</h2>
+    <p class="sub">Same domains and renaming; its own problems and a PDDL-only prompt.</p>
+    <div class="table-scroll">
+      <table class="vs">
+        <thead><tr><th scope="col">What</th><th scope="col">PlanBench</th><th scope="col">This project</th><th scope="col">Why</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Domains</th><td>Blocksworld, Mystery, Logistics, Depots</td><td>Blocksworld, Mystery (same rules, same renaming)</td><td>The two domains PDDL-INSTRUCT tests first.</td></tr>
+          <tr><th scope="row">Problems</th><td>fixed sets: 600 Blocksworld, 285 Logistics</td><td>generated from seeds, 3–6 blocks: 1,440 training examples, 320 Phase 2 problems, 200 test problems</td><td>Training needs many more problems than a test set has, and test problems must never be seen in training.</td></tr>
+          <tr><th scope="row">Prompt</th><td>domain described in English, coloured blocks, one solved example</td><td>raw PDDL domain and problem files, letter names, no example</td><td>Follows PDDL-INSTRUCT, which gives the model PDDL directly.</td></tr>
+          <tr><th scope="row">Tasks</th><td>8 test cases</td><td>explanation (like verification and execution) for training; plan generation for testing</td><td>Matches the paper's two phases.</td></tr>
+          <tr><th scope="row">Grading</th><td>VAL, after translating English to PDDL</td><td>own VAL-style checker on the PDDL plan, plus every claimed state</td><td>No translation step, so no translation errors.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:14px"><b>So the numbers are not directly comparable</b> with published PlanBench scores: the problems, the prompt and the number of examples all differ. Running the rebuilt model on PlanBench's own 600 Blocksworld and 600 Mystery instances is a natural next step.</div>
+  </section>
+
+  <div class="next"><a href="pddl.html">← PDDL Basics</a><a href="solvers.html">Exact Solvers →</a></div>
+  <footer>Planning · <a href="../../">Shuja Abidi</a> · <a href="../../#papers">All paper walkthroughs</a> · PlanBench figures are from the PlanBench paper (arXiv 2206.10498), its GitHub repository and the Hugging Face copy, checked November 2026.</footer>
+</main>
+<script src="pddl.js?v=4"></script>
+<script data-goatcounter="https://shuja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
