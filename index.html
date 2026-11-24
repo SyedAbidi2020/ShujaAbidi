@@ -547,6 +547,52 @@
     </div>
     <figure><a href="papers/ra-dp/"><img src="papers/ra-dp/assets/reach_static_seed6_last.png" alt="Three Sawyer arms side by side reaching past a red obstacle: plain diffusion policy, guided diffusion policy and RA-DP." width="1260" height="420" loading="lazy"></a>
     <figcaption>Same start and the same obstacle, unseen in training: plain and guided diffusion policy hit it; RA-DP replans around it.</figcaption></figure>
+
+    <div class="cols" style="margin-top:44px">
+      <div>
+        <h3 style="margin-top:0">ConformalDAgger: a robot that knows when to ask for help</h3>
+        <p class="note">M. Zhao, R. Simmons, H. Admoni, A. Ramdas and A. Bajcsy, <i>Conformalized Interactive Imitation Learning: Handling Expert Shift and Intermittent Feedback</i>, ICLR 2025. Independent re-implementation; not the authors' code.</p>
+        <p>A robot learning from a teacher has a problem when the teacher changes their mind and only corrects it now and then. ConformalDAgger keeps a calibrated margin around each action with online conformal prediction, updated only when the teacher's label is seen and weighted by how likely that was, and the robot asks for help when the margin grows.</p>
+        <p>I rebuilt the learner, the DAgger loop, intermittent quantile tracking and three baselines from the paper, over four settings and five seeds (100 runs), then ran it unchanged on a UR5e arm with a gripper in MuJoCo. Four of the five main claims reproduced, one did not, and I found a likely sign typo in the printed miss test. A planned extension uses a person's reactions to trigger questions earlier while keeping the guarantee.</p>
+        <p class="links"><a href="papers/conformal-dagger/">Open the walkthrough</a></p>
+      </div>
+      <div class="panel">
+        <h3>Results</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Test</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Paper's main claims</td><td>4 of 5 reproduced; 1 not (34% vs 38% asking at the shift)</td></tr>
+            <tr><td>Calibration</td><td>margin misses 6% (ensemble baseline 80–100%)</td></tr>
+            <tr><td>After the teacher's goal moves</td><td>robot's own questions 7% → 27% → 6%; relearned by episode 7</td></tr>
+            <tr><td>UR5e arm, 5 seeds</td><td>same pattern: asks 16% → 33%, back to normal by episode 10</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <figure><a href="papers/conformal-dagger/results.html#arm"><img src="papers/conformal-dagger/img/arm_task.png" alt="A UR5e arm with a gripper carrying a mug to a green goal marker in MuJoCo, shown from two angles and close up." width="2400" height="600" loading="lazy"></a>
+    <figcaption>The same learner and asking rule driving a simulated UR5e arm; the walkthrough's results page has four clips of the robot asking for help after the teacher changes their mind.</figcaption></figure>
+
+    <div class="cols" style="margin-top:44px">
+      <div>
+        <h3 style="margin-top:0">PDDL-INSTRUCT: teaching a language model to plan</h3>
+        <p class="note">Verma et al., with J. Shah (MIT), <i>Teaching LLMs to Plan: Logical Chain-of-Thought Instruction Tuning for Symbolic Planning</i>, 2025. Independent re-implementation; not the authors' code.</p>
+        <p>Language models write plans that sound right but break the rules. PDDL-INSTRUCT teaches a model to reason step by step about each action's preconditions and effects, with an exact plan checker grading every step and teaching the model from its own mistakes.</p>
+        <p>I wrote the PDDL parser and checker, the problem generator, both training phases and the feedback loop, and trained a small open model (Qwen2.5-1.5B) with LoRA on one 8 GB laptop GPU. The site includes a planner you can try in the browser.</p>
+        <p class="links"><a href="papers/pddl-instruct/">Open the walkthrough</a></p>
+      </div>
+      <div class="panel">
+        <h3>Results</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Test (200 unseen problems)</th><th>Valid plans</th></tr></thead>
+          <tbody>
+            <tr><td>Base model</td><td>0</td></tr>
+            <tr><td>After training, first try</td><td>31</td></tr>
+            <tr><td>After 3 rounds of checker feedback</td><td>66 (71 with sampling)</td></tr>
+            <tr><td>Blocksworld / Mystery, best</td><td>47% / 26%</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
   </section>
 
   <section class="field" id="simulation">
